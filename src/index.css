@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+:root {
+  --bg: #0f1412;
+  --bg-elevated: #171d1a;
+  --bg-slot: #1c2420;
+  --bg-slot-hour: #1a211e;
+  --border: #2a3530;
+  --border-soft: #232b27;
+  --text: #e8efea;
+  --text-muted: #8a9a91;
+  --accent: #3dffa8;
+  --accent-dim: rgba(61, 255, 168, 0.14);
+  --over: rgba(61, 255, 168, 0.22);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --radius: 10px;
+  --slot-h: 52px;
+  --time-col: 64px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(61, 255, 168, 0.08), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, 0.06), transparent 50%),
+    var(--bg);
+}
+
+button {
+  font: inherit;
+}
