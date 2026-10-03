@@ -1,7 +1,7 @@
-import { apiFetch, setToken } from './http'
+import { apiFetch, apiUrl, setToken } from './http'
 
 export async function login(email: string, password: string): Promise<void> {
-  const res = await fetch('/api/auth/login', {
+  const res = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),

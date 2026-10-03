@@ -31,6 +31,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_API_URL: https://sante-api.duckdns.org
         run: npm run build
 
       - name: Upload artifact

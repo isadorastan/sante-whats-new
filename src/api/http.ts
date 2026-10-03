@@ -1,5 +1,10 @@
 const TOKEN_KEY = 'sante-auth'
 
+export function apiUrl(path: string) {
+  const base = String(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+  return `${base}${path}`
+}
+
 type UnauthorizedHandler = () => void
 
 let onUnauthorized: UnauthorizedHandler | null = null
@@ -25,7 +30,7 @@ export async function apiFetch(input: string, init: RequestInit = {}) {
   const token = getToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const res = await fetch(input, { ...init, headers })
+  const res = await fetch(apiUrl(input), { ...init, headers })
   if (res.status === 401) {
     clearToken()
     onUnauthorized?.()
