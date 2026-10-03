@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DayOfWeek, Session, Student } from '../types'
 import { DAYS } from '../types'
 import {
@@ -77,6 +77,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   const [queue, setQueue] = useState<SendItem[]>([])
   const [sending, setSending] = useState(false)
   const [batchDone, setBatchDone] = useState(false)
+  const [checking, setChecking] = useState(false)
   const cancelRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
   const sendingRef = useRef(false)
@@ -97,33 +98,56 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
     setQueue(buildQueue(sessions, selectedDay, studentsById, dayLabel))
     setBatchDone(false)
   }, [sessions, selectedDay, studentsById, dayLabel])
+  const refreshStatus = useCallback(async () => {
+    try {
+      const data = await fetchWhatsAppStatus()
+      setConnection(data.status)
+      setQr(data.qr)
+      setStatusError(null)
+      return data.status
+    } catch {
+      setConnection('disconnected')
+      setQr(null)
+      setStatusError(
+        'Servidor WhatsApp offline. Rode npm run dev:server na pasta do projeto',
+      )
+      return 'disconnected' as const
+    }
+  }, [])
+
+  const waitingForQr = connection === 'qr' || connection === 'initializing'
+
+  // Consulta ao abrir a página. Repete a cada 2s só enquanto o QR está sendo gerado.
   useEffect(() => {
     let alive = true
 
     async function poll() {
-      try {
-        const data = await fetchWhatsAppStatus()
-        if (!alive) return
-        setConnection(data.status)
-        setQr(data.qr)
-        setStatusError(null)
-      } catch {
-        if (!alive) return
-        setConnection('disconnected')
-        setQr(null)
-        setStatusError(
-          'Servidor WhatsApp offline. Rode npm run dev:server na pasta do projeto',
-        )
-      }
+      if (!alive) return
+      await refreshStatus()
     }
 
     void poll()
-    const timer = window.setInterval(poll, 2000)
+    if (!waitingForQr) {
+      return () => {
+        alive = false
+      }
+    }
+
+    const timer = window.setInterval(() => void poll(), 2000)
     return () => {
       alive = false
       window.clearInterval(timer)
     }
-  }, [])
+  }, [waitingForQr, refreshStatus])
+
+  async function handleCheckStatus() {
+    setChecking(true)
+    try {
+      await refreshStatus()
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const summary = useMemo(() => {
     const sent = queue.filter((i) => i.status === 'ok').length
@@ -170,7 +194,13 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   }
 
   async function handleSend() {
-    if (sending || connection !== 'connected' || sendableCount === 0) return
+    if (sending || sendableCount === 0) return
+
+    const status = await refreshStatus()
+    if (status !== 'connected') {
+      setStatusError('WhatsApp não está conectado. Verifique a conexão e tente de novo.')
+      return
+    }
 
     cancelRef.current = false
     setBatchDone(false)
@@ -291,11 +321,23 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
             Conecte o WhatsApp e avise os alunos do dia
           </p>
         </div>
-        {connection === 'connected' ? (
-          <button type="button" className="btn" onClick={() => void handleLogout()}>
-            Desconectar
-          </button>
-        ) : null}
+        <div className="whatsapp-send__actions">
+          {connection === 'connected' || connection === 'disconnected' ? (
+            <button
+              type="button"
+              className="btn"
+              disabled={checking || sending}
+              onClick={() => void handleCheckStatus()}
+            >
+              {checking ? 'Verificando...' : 'Verificar conexão'}
+            </button>
+          ) : null}
+          {connection === 'connected' ? (
+            <button type="button" className="btn" onClick={() => void handleLogout()}>
+              Desconectar
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="page-body whatsapp-page">

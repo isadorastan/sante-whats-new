@@ -139,9 +139,36 @@ export default function App() {
 
   const handleUpdateSession = useCallback(
     async (id: number, input: SessionUpdate) => {
-      const updated = await updateSession(id, input)
-      setSessions((prev) => prev.map((s) => (s.id === id ? updated : s)))
-      return updated
+      let previous: Session | undefined
+      setSessions((prev) => {
+        previous = prev.find((s) => s.id === id)
+        if (!previous) return prev
+        return prev.map((s) => {
+          if (s.id !== id) return s
+          return {
+            ...s,
+            ...(input.day !== undefined ? { day: input.day } : {}),
+            ...(input.time !== undefined ? { time: input.time } : {}),
+            ...(input.studentId !== undefined
+              ? { studentId: input.studentId }
+              : {}),
+          }
+        })
+      })
+
+      try {
+        const updated = await updateSession(id, input)
+        setSessions((prev) => prev.map((s) => (s.id === id ? updated : s)))
+        return updated
+      } catch (err) {
+        if (previous) {
+          const snapshot = previous
+          setSessions((prev) =>
+            prev.map((s) => (s.id === id ? snapshot : s)),
+          )
+        }
+        throw err
+      }
     },
     [],
   )
@@ -156,9 +183,31 @@ export default function App() {
       items: { id: number; day?: DayOfWeek; time?: string }[],
     ) => {
       if (items.length === 0) return
-      const updated = await updateSessionsBulk(items)
-      const byId = new Map(updated.map((s) => [s.id, s]))
-      setSessions((prev) => prev.map((s) => byId.get(s.id) ?? s))
+
+      const patches = new Map(items.map((item) => [item.id, item]))
+      let previous: Session[] = []
+      setSessions((prev) => {
+        previous = prev.filter((s) => patches.has(s.id))
+        return prev.map((s) => {
+          const patch = patches.get(s.id)
+          if (!patch) return s
+          return {
+            ...s,
+            ...(patch.day !== undefined ? { day: patch.day } : {}),
+            ...(patch.time !== undefined ? { time: patch.time } : {}),
+          }
+        })
+      })
+
+      try {
+        const updated = await updateSessionsBulk(items)
+        const byId = new Map(updated.map((s) => [s.id, s]))
+        setSessions((prev) => prev.map((s) => byId.get(s.id) ?? s))
+      } catch (err) {
+        const snapshots = new Map(previous.map((s) => [s.id, s]))
+        setSessions((prev) => prev.map((s) => snapshots.get(s.id) ?? s))
+        throw err
+      }
     },
     [],
   )
