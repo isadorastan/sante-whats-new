@@ -10,15 +10,37 @@ function parseId(value) {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+function ownerId(req, res) {
+  const id = req.user?.id
+  if (typeof id !== 'string' || !id) {
+    res.status(401).json({ error: 'Não autenticado' })
+    return null
+  }
+  return id
+}
+
+async function ownsStudent(db, userId, studentId) {
+  const { data, error } = await db
+    .from('students')
+    .select('id')
+    .eq('id', studentId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  return { ok: Boolean(data), error }
+}
+
 // --- Students ---
 
-dataRouter.get('/students', async (_req, res) => {
+dataRouter.get('/students', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const { data, error } = await db
     .from('students')
     .select('*')
+    .eq('user_id', userId)
     .order('name', { ascending: true })
 
   if (error) {
@@ -33,6 +55,8 @@ dataRouter.get('/students', async (_req, res) => {
 dataRouter.post('/students', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const { name, phone, weeklyClasses, planValue, color } = req.body ?? {}
   if (!name || typeof name !== 'string' || !name.trim()) {
@@ -58,6 +82,7 @@ dataRouter.post('/students', async (req, res) => {
   const { data, error } = await db
     .from('students')
     .insert({
+      user_id: userId,
       name: name.trim(),
       phone: String(phone ?? '').replace(/\D/g, ''),
       weekly_classes: weekly,
@@ -79,6 +104,8 @@ dataRouter.post('/students', async (req, res) => {
 dataRouter.patch('/students/:id', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const id = parseId(req.params.id)
   if (!id) {
@@ -132,6 +159,7 @@ dataRouter.patch('/students/:id', async (req, res) => {
     .from('students')
     .update(patch)
     .eq('id', id)
+    .eq('user_id', userId)
     .select('*')
     .single()
 
@@ -148,6 +176,8 @@ dataRouter.patch('/students/:id', async (req, res) => {
 dataRouter.delete('/students/:id', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const id = parseId(req.params.id)
   if (!id) {
@@ -155,11 +185,20 @@ dataRouter.delete('/students/:id', async (req, res) => {
     return
   }
 
-  const { error } = await db.from('students').delete().eq('id', id)
+  const { data, error } = await db
+    .from('students')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
 
   if (error) {
     console.error('DELETE /students/:id', error)
     res.status(500).json({ error: error.message })
+    return
+  }
+  if (!data?.length) {
+    res.status(404).json({ error: 'Aluno não encontrado' })
     return
   }
 
@@ -171,8 +210,15 @@ dataRouter.delete('/students/:id', async (req, res) => {
 dataRouter.get('/sessions', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
-  let query = db.from('sessions').select('*').order('day').order('time')
+  let query = db
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('day')
+    .order('time')
 
   const day = req.query.day
   if (typeof day === 'string' && day) {
@@ -197,6 +243,8 @@ dataRouter.get('/sessions', async (req, res) => {
 dataRouter.post('/sessions', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const { studentId, day, time, durationMinutes } = req.body ?? {}
   const sid = parseId(studentId)
@@ -220,9 +268,21 @@ dataRouter.post('/sessions', async (req, res) => {
     return
   }
 
+  const owned = await ownsStudent(db, userId, sid)
+  if (owned.error) {
+    console.error('POST /sessions', owned.error)
+    res.status(500).json({ error: owned.error.message })
+    return
+  }
+  if (!owned.ok) {
+    res.status(404).json({ error: 'Aluno não encontrado' })
+    return
+  }
+
   const { data, error } = await db
     .from('sessions')
     .insert({
+      user_id: userId,
       student_id: sid,
       day,
       time,
@@ -250,6 +310,8 @@ dataRouter.post('/sessions', async (req, res) => {
 dataRouter.patch('/sessions/bulk', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const items = req.body
   if (!Array.isArray(items) || items.length === 0) {
@@ -296,12 +358,16 @@ dataRouter.patch('/sessions/bulk', async (req, res) => {
       .from('sessions')
       .update(patch)
       .eq('id', id)
+      .eq('user_id', userId)
       .select('*')
       .single()
 
     if (error) {
       console.error('PATCH /sessions/bulk', error)
-      res.status(500).json({ error: error.message })
+      const status = error.code === 'PGRST116' ? 404 : 500
+      res.status(status).json({
+        error: status === 404 ? 'Sessão não encontrada' : error.message,
+      })
       return
     }
 
@@ -314,6 +380,8 @@ dataRouter.patch('/sessions/bulk', async (req, res) => {
 dataRouter.patch('/sessions/:id', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const id = parseId(req.params.id)
   if (!id) {
@@ -352,6 +420,16 @@ dataRouter.patch('/sessions/:id', async (req, res) => {
       res.status(400).json({ error: 'studentId inválido' })
       return
     }
+    const owned = await ownsStudent(db, userId, sid)
+    if (owned.error) {
+      console.error('PATCH /sessions/:id', owned.error)
+      res.status(500).json({ error: owned.error.message })
+      return
+    }
+    if (!owned.ok) {
+      res.status(404).json({ error: 'Aluno não encontrado' })
+      return
+    }
     patch.student_id = sid
   }
 
@@ -364,6 +442,7 @@ dataRouter.patch('/sessions/:id', async (req, res) => {
     .from('sessions')
     .update(patch)
     .eq('id', id)
+    .eq('user_id', userId)
     .select('*')
     .single()
 
@@ -381,6 +460,8 @@ dataRouter.patch('/sessions/:id', async (req, res) => {
 dataRouter.delete('/sessions/:id', async (req, res) => {
   const db = requireDb(res)
   if (!db) return
+  const userId = ownerId(req, res)
+  if (!userId) return
 
   const id = parseId(req.params.id)
   if (!id) {
@@ -388,11 +469,20 @@ dataRouter.delete('/sessions/:id', async (req, res) => {
     return
   }
 
-  const { error } = await db.from('sessions').delete().eq('id', id)
+  const { data, error } = await db
+    .from('sessions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
 
   if (error) {
     console.error('DELETE /sessions/:id', error)
     res.status(500).json({ error: error.message })
+    return
+  }
+  if (!data?.length) {
+    res.status(404).json({ error: 'Sessão não encontrada' })
     return
   }
 

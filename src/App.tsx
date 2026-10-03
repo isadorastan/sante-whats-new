@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppPage, DayOfWeek, Session, Student } from './types'
+import { fetchMe } from './api/auth'
+import { clearToken, getToken, setUnauthorizedHandler } from './api/http'
 import {
   createSession,
   createStudent,
@@ -17,11 +19,18 @@ import {
 } from './api/data'
 import { Sidebar } from './components/Sidebar'
 import { AgendaPage } from './pages/AgendaPage'
+import { LoginPage } from './pages/LoginPage'
 import { StudentsPage } from './pages/StudentsPage'
 import { WhatsAppPage } from './pages/WhatsAppPage'
 import './App.css'
 
+type AuthState = 'checking' | 'in' | 'out' | 'error'
+
 export default function App() {
+  const [auth, setAuth] = useState<AuthState>(() =>
+    getToken() ? 'checking' : 'out',
+  )
+  const [authError, setAuthError] = useState<string | null>(null)
   const [page, setPage] = useState<AppPage>('agenda')
   const [students, setStudents] = useState<Student[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
@@ -47,9 +56,59 @@ export default function App() {
     }
   }, [])
 
+  const enter = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    setAuth('in')
+  }, [])
+
+  const checkSession = useCallback(async () => {
+    if (!getToken()) {
+      setAuth('out')
+      return
+    }
+    setAuth('checking')
+    setAuthError(null)
+    try {
+      await fetchMe()
+      enter()
+    } catch (err) {
+      if (!getToken()) {
+        setAuth('out')
+        return
+      }
+      setAuthError(
+        err instanceof Error ? err.message : 'Falha ao validar sessão',
+      )
+      setAuth('error')
+    }
+  }, [enter])
+
   useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setAuth('out')
+      setAuthError(null)
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [])
+
+  useEffect(() => {
+    void checkSession()
+  }, [checkSession])
+
+  useEffect(() => {
+    if (auth !== 'in') return
     void reload()
-  }, [reload])
+  }, [auth, reload])
+
+  function handleLogout() {
+    clearToken()
+    setStudents([])
+    setSessions([])
+    setError(null)
+    setPage('agenda')
+    setAuth('out')
+  }
 
   const handleCreateStudent = useCallback(async (input: StudentInput) => {
     const created = await createStudent(input)
@@ -104,12 +163,40 @@ export default function App() {
     [],
   )
 
+  if (auth === 'checking') {
+    return (
+      <div className="login-screen">
+        <p className="page-status">Carregando...</p>
+      </div>
+    )
+  }
+
+  if (auth === 'error') {
+    return (
+      <div className="login-screen">
+        <div className="whatsapp-banner whatsapp-banner--error">{authError}</div>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => void checkSession()}
+        >
+          Tentar de novo
+        </button>
+      </div>
+    )
+  }
+
+  if (auth === 'out') {
+    return <LoginPage onSuccess={enter} />
+  }
+
   return (
     <div className="app-shell">
       <Sidebar
         currentPage={page}
         onNavigate={setPage}
         studentCount={students.length}
+        onLogout={handleLogout}
       />
       <div className="app-content">
         {loading ? (

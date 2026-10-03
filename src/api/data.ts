@@ -1,4 +1,5 @@
 import type { DayOfWeek, Session, Student } from '../types'
+import { apiFetch } from './http'
 
 export type StudentInput = Omit<Student, 'id'>
 export type StudentUpdate = Partial<Omit<Student, 'id'>>
@@ -41,12 +42,12 @@ async function parseJson<T>(res: Response): Promise<T> {
 }
 
 export async function fetchStudents(): Promise<Student[]> {
-  const res = await fetch('/api/students')
+  const res = await apiFetch('/api/students')
   return parseJson<Student[]>(res)
 }
 
 export async function createStudent(input: StudentInput): Promise<Student> {
-  const res = await fetch('/api/students', {
+  const res = await apiFetch('/api/students', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -58,7 +59,7 @@ export async function updateStudent(
   id: number,
   input: StudentUpdate,
 ): Promise<Student> {
-  const res = await fetch(`/api/students/${id}`, {
+  const res = await apiFetch(`/api/students/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -67,18 +68,18 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(id: number): Promise<void> {
-  const res = await fetch(`/api/students/${id}`, { method: 'DELETE' })
+  const res = await apiFetch(`/api/students/${id}`, { method: 'DELETE' })
   await parseJson<void>(res)
 }
 
 export async function fetchSessions(day?: DayOfWeek): Promise<Session[]> {
   const url = day ? `/api/sessions?day=${day}` : '/api/sessions'
-  const res = await fetch(url)
+  const res = await apiFetch(url)
   return parseJson<Session[]>(res)
 }
 
 export async function createSession(input: SessionInput): Promise<Session> {
-  const res = await fetch('/api/sessions', {
+  const res = await apiFetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -90,7 +91,7 @@ export async function updateSession(
   id: number,
   input: SessionUpdate,
 ): Promise<Session> {
-  const res = await fetch(`/api/sessions/${id}`, {
+  const res = await apiFetch(`/api/sessions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -101,7 +102,7 @@ export async function updateSession(
 export async function updateSessionsBulk(
   items: SessionBulkItem[],
 ): Promise<Session[]> {
-  const res = await fetch('/api/sessions/bulk', {
+  const res = await apiFetch('/api/sessions/bulk', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(items),
@@ -110,6 +111,6 @@ export async function updateSessionsBulk(
 }
 
 export async function deleteSession(id: number): Promise<void> {
-  const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' })
+  const res = await apiFetch(`/api/sessions/${id}`, { method: 'DELETE' })
   await parseJson<void>(res)
 }

@@ -4,7 +4,10 @@
 truncate table public.sessions restart identity cascade;
 truncate table public.students restart identity cascade;
 
-insert into public.students (id, name, phone, weekly_classes, plan_value, color) values
+-- user_id é o usuário mais antigo de Authentication. Crie a conta antes de rodar.
+insert into public.students (id, name, phone, weekly_classes, plan_value, color, user_id)
+select v.id, v.name, v.phone, v.weekly_classes, v.plan_value, v.color, owner.id
+from (values
   (1,  'Jean Bisogno',       '55999815962', 3, 450, '#2dd4a8'),
   (2,  'Nilo Stangarlin',    '55996636350', 2, 320, '#5b8def'),
   (3,  'Mariusa Stangarlin', '55996067576', 3, 450, '#38bdf8'),
@@ -25,10 +28,14 @@ insert into public.students (id, name, phone, weekly_classes, plan_value, color)
   (18, 'Rafaela Pires',      '11810987654', 2, 320, '#2dd4a8'),
   (19, 'Thiago Moreira',     '11709876543', 2, 320, '#5b8def'),
   (20, 'Vanessa Guimarães',  '11798765432', 3, 450, '#f5a524'),
-  (21, 'William Torres',     '11787654321', 1, 180, '#ef5b7a');
+  (21, 'William Torres',     '11787654321', 1, 180, '#ef5b7a')
+) as v(id, name, phone, weekly_classes, plan_value, color)
+cross join (select id from auth.users order by created_at limit 1) as owner;
 
 -- Sessions that referenced missing seed students (ana/bruno) were dropped.
-insert into public.sessions (student_id, day, time, duration_minutes) values
+insert into public.sessions (student_id, day, time, duration_minutes, user_id)
+select v.student_id, v.day, v.time, v.duration_minutes, st.user_id
+from (values
   (3,  'seg', '07:00', 45),
   (4,  'seg', '08:30', 45),
   (5,  'seg', '18:00', 45),
@@ -47,7 +54,9 @@ insert into public.sessions (student_id, day, time, duration_minutes) values
   (18, 'sab', '09:00', 45),
   (19, 'sab', '09:00', 45),
   (20, 'sab', '10:30', 45),
-  (21, 'dom', '10:00', 45);
+  (21, 'dom', '10:00', 45)
+) as v(student_id, day, time, duration_minutes)
+join public.students as st on st.id = v.student_id;
 
 select setval(
   pg_get_serial_sequence('public.students', 'id'),

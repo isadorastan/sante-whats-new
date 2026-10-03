@@ -1,3 +1,5 @@
+import { apiFetch } from './http'
+
 export type WhatsAppConnectionStatus =
   | 'disconnected'
   | 'initializing'
@@ -21,18 +23,18 @@ export interface SendOneResult {
 }
 
 export async function fetchWhatsAppStatus(): Promise<WhatsAppStatusResponse> {
-  const res = await fetch('/api/whatsapp/status')
+  const res = await apiFetch('/api/whatsapp/status')
   if (!res.ok) throw new Error('Falha ao consultar status do WhatsApp')
   return res.json()
 }
 
 export async function startWhatsApp(): Promise<void> {
-  const res = await fetch('/api/whatsapp/start', { method: 'POST' })
+  const res = await apiFetch('/api/whatsapp/start', { method: 'POST' })
   if (!res.ok) throw new Error('Falha ao iniciar conexão WhatsApp')
 }
 
 export async function logoutWhatsApp(): Promise<void> {
-  const res = await fetch('/api/whatsapp/logout', { method: 'POST' })
+  const res = await apiFetch('/api/whatsapp/logout', { method: 'POST' })
   if (!res.ok) throw new Error('Falha ao desconectar WhatsApp')
 }
 
@@ -41,7 +43,7 @@ export async function sendWhatsAppOne(
   payload: SendOnePayload,
   signal?: AbortSignal,
 ): Promise<SendOneResult> {
-  const res = await fetch('/api/whatsapp/send-one', {
+  const res = await apiFetch('/api/whatsapp/send-one', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

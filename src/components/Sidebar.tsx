@@ -4,6 +4,7 @@ interface SidebarProps {
   currentPage: AppPage
   onNavigate: (page: AppPage) => void
   studentCount: number
+  onLogout: () => void
 }
 
 const NAV_ITEMS: { id: AppPage; label: string; hint: string }[] = [
@@ -12,7 +13,12 @@ const NAV_ITEMS: { id: AppPage; label: string; hint: string }[] = [
   { id: 'whatsapp', label: 'WhatsApp', hint: 'Avisos do dia' },
 ]
 
-export function Sidebar({ currentPage, onNavigate, studentCount }: SidebarProps) {
+export function Sidebar({
+  currentPage,
+  onNavigate,
+  studentCount,
+  onLogout,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -39,6 +45,12 @@ export function Sidebar({ currentPage, onNavigate, studentCount }: SidebarProps)
           </button>
         ))}
       </nav>
+
+      <div className="sidebar__footer">
+        <button type="button" className="btn sidebar__logout" onClick={onLogout}>
+          Sair
+        </button>
+      </div>
     </aside>
   )
 }

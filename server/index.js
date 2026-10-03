@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
+import { login, me, requireAuth } from './auth.js'
 import { dataRouter } from './routes/data.js'
 
 const { Client, LocalAuth } = pkg
@@ -359,6 +360,9 @@ async function createClient({ force = false } = {}) {
 const app = express()
 app.use(cors())
 app.use(express.json())
+app.post('/api/auth/login', login)
+app.use('/api', requireAuth)
+app.get('/api/auth/me', me)
 app.use('/api', dataRouter)
 
 app.get('/api/whatsapp/status', async (_req, res) => {
