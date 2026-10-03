@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# Agenda Personal
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+O front publicado fica em https://isadorastan.github.io/sante-whats-new/. O backend roda na VPS com systemd, no serviço `sante-whats`. Não usamos PM2.
 
-Currently, two official plugins are available:
+- Código na VPS: `/var/www/sante-whats-new`
+- API pública: https://sante-api.duckdns.org
+- IP: `213.199.35.215` (`ssh root@213.199.35.215`)
+- Processo: `systemctl` → `sante-whats`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O `server/.env` e a sessão do WhatsApp em `server/.wwebjs_auth` não entram no git. Um restart não pede QR de novo e não apaga a chave do Supabase.
 
-## React Compiler
+## Atualizar o backend
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Na VPS:
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd /var/www/sante-whats-new
+git pull
+cd server
+npm ci --omit=dev
+systemctl restart sante-whats
+journalctl -u sante-whats -f
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+O `npm ci` só é necessário se `server/package.json` ou `server/package-lock.json` mudou. Se a alteração foi só em código:
+
+```bash
+cd /var/www/sante-whats-new
+git pull
+systemctl restart sante-whats
+journalctl -u sante-whats -f
+```
+
+O log tem que mostrar `WhatsApp client ready`. `Ctrl+C` só fecha o acompanhamento do log. O serviço continua rodando.
