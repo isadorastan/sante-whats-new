@@ -44,7 +44,7 @@ function buildQueue(
 ): SendItem[] {
   return sessions
     .filter((s) => s.day === selectedDay)
-    .map((session) => {
+    .map((session): SendItem | null => {
       const student = studentsById.get(session.studentId)
       if (!student) return null
 
