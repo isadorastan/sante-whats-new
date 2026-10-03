@@ -114,7 +114,7 @@ function clearBrowserLocks() {
   }
 
   try {
-    execSync(`pkill -f "sante-whats2/server/.wwebjs_auth" || true`, {
+    execSync(`pkill -f ${JSON.stringify(SESSION_DIR)} || true`, {
       stdio: 'ignore',
     })
   } catch {
@@ -304,7 +304,18 @@ async function createClient({ force = false } = {}) {
     authStrategy: new LocalAuth({ dataPath: AUTH_DIR }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--mute-audio',
+        '--no-first-run',
+      ],
     },
   })
 
