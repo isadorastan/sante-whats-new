@@ -33,7 +33,7 @@ interface WhatsAppPageProps {
 }
 
 function buildMessage(name: string, dayLabel: string, time: string): string {
-  return `Olá, ${name}. Sua aula com o prof ${PROFESSOR_NAME} está agendada para ${dayLabel} ${time}. É a isa testando, ignore`
+  return `Olá, ${name}. Sua aula com o prof ${PROFESSOR_NAME} está agendada para ${dayLabel} às ${time}h. Avise se precisar remarcar. Até lá! 👊`
 }
 
 function buildQueue(
