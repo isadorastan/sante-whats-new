@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { fetchProfessor, saveProfessor } from '../api/professor'
 import {
   fetchWhatsAppStatus,
   sendWhatsAppOne,
@@ -8,6 +9,11 @@ import {
 } from '../api/whatsapp'
 import type { Session, Student } from '../types'
 import { WhatsAppPage } from './WhatsAppPage'
+
+vi.mock('../api/professor', () => ({
+  fetchProfessor: vi.fn(),
+  saveProfessor: vi.fn(),
+}))
 
 vi.mock('../api/whatsapp', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/whatsapp')>()
@@ -65,6 +71,12 @@ function renderPage() {
 async function openConnectedPage() {
   renderPage()
   await screen.findByText('WhatsApp conectado')
+  await waitFor(() => {
+    const value = (
+      screen.getByRole('textbox', { name: 'Mensagem para Bruno' }) as HTMLTextAreaElement
+    ).value
+    expect(value).toContain('prof Jean')
+  })
 }
 
 beforeEach(() => {
@@ -73,6 +85,14 @@ beforeEach(() => {
     qr: null,
   })
   vi.mocked(sendWhatsAppOne).mockResolvedValue({ ok: true })
+  vi.mocked(fetchProfessor).mockResolvedValue({
+    name: 'Jean',
+    phone: '51999999999',
+  })
+  vi.mocked(saveProfessor).mockResolvedValue({
+    name: 'Jean',
+    phone: '51999999999',
+  })
 })
 
 it('lista só as aulas do dia, marcadas e com o texto gerado', async () => {
@@ -81,7 +101,7 @@ it('lista só as aulas do dia, marcadas e com o texto gerado', async () => {
   expect(screen.getByText('2 selecionadas de 3 para Terça')).toBeInTheDocument()
   expect(screen.queryByRole('textbox', { name: 'Mensagem para Carla' })).not.toBeInTheDocument()
 
-  const messages = screen.getAllByRole('textbox')
+  const messages = screen.getAllByRole('textbox', { name: /Mensagem para/ })
   expect(messages.map((field) => field.getAttribute('aria-label'))).toEqual([
     'Mensagem para Bruno',
     'Mensagem para Duda',

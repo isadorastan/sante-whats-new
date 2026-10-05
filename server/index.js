@@ -8,7 +8,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 import { login, me, requireAuth } from './auth.js'
+import { supabase } from './db.js'
+import { runDailySummaries } from './dailySummary.js'
 import { dataRouter } from './routes/data.js'
+import { professorRouter } from './routes/professor.js'
+import { isValidWhatsAppPhone, toWhatsAppDigits } from './phone.js'
 
 const { Client, LocalAuth } = pkg
 
@@ -24,28 +28,6 @@ let latestQr = null
 /** @type {import('whatsapp-web.js').Client | null} */
 let client = null
 let starting = false
-
-function toWhatsAppId(phone) {
-  let digits = String(phone).replace(/\D/g, '')
-  if (digits.startsWith('00')) digits = digits.slice(2)
-
-  if (
-    (digits.length === 12 || digits.length === 13) &&
-    digits.startsWith('55')
-  ) {
-    return `${digits}@c.us`
-  }
-
-  if (digits.length === 10 || digits.length === 11) {
-    return `55${digits}@c.us`
-  }
-
-  return `${digits}@c.us`
-}
-
-function isValidWhatsAppDigits(digits) {
-  return digits.length === 12 || digits.length === 13
-}
 
 function withTimeout(promise, ms, label) {
   let timer
@@ -382,6 +364,7 @@ app.post('/api/auth/login', login)
 app.use('/api', requireAuth)
 app.get('/api/auth/me', me)
 app.use('/api', dataRouter)
+app.use('/api', professorRouter)
 
 app.get('/api/whatsapp/status', async (_req, res) => {
   if (status === 'connected') {
@@ -438,15 +421,15 @@ app.post('/api/whatsapp/send-one', async (req, res) => {
     return
   }
 
-  const chatId = toWhatsAppId(phone)
-  const digits = chatId.replace('@c.us', '')
-  if (!isValidWhatsAppDigits(digits)) {
+  if (!isValidWhatsAppPhone(phone)) {
     res.status(400).json({
       ok: false,
       error: 'Telefone incompleto — use DDD + número (10 ou 11 dígitos)',
     })
     return
   }
+
+  const digits = toWhatsAppDigits(phone)
 
   try {
     await enqueueSend(async () => {
@@ -481,9 +464,56 @@ app.post('/api/whatsapp/send-one', async (req, res) => {
   }
 })
 
+function sendSummary(phone, text) {
+  const digits = toWhatsAppDigits(phone)
+  return enqueueSend(async () => {
+    await sendMessageSimple(digits, text)
+  })
+}
+
+function isLoopback(req) {
+  const ip = req.socket?.remoteAddress ?? ''
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+}
+
+app.post('/internal/send-summary', async (req, res) => {
+  if (!isLoopback(req)) {
+    res.status(404).end()
+    return
+  }
+
+  const result = await runDailySummaries({
+    db: supabase,
+    isConnected: () => status === 'connected' && Boolean(client),
+    sendText: sendSummary,
+    force: true,
+  })
+
+  if (result.reason === 'disconnected') {
+    res.status(409).json({ ok: false, error: 'WhatsApp não conectado' })
+    return
+  }
+  if (result.reason === 'busy') {
+    res.status(409).json({ ok: false, error: 'Já existe um envio em andamento' })
+    return
+  }
+
+  res.json({ ok: true, sent: result.sent ?? 0 })
+})
+
+async function tickDailySummary() {
+  await runDailySummaries({
+    db: supabase,
+    isConnected: () => status === 'connected' && Boolean(client),
+    sendText: sendSummary,
+  })
+}
+
 const server = app.listen(PORT, () => {
   console.log(`WhatsApp server on http://localhost:${PORT}`)
   void createClient({ force: true })
+  void tickDailySummary()
+  setInterval(() => void tickDailySummary(), 60_000)
 })
 
 server.on('error', (err) => {

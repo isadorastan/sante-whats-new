@@ -66,3 +66,18 @@ create policy sessions_own on public.sessions
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create table if not exists public.professor_settings (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  name text not null default '',
+  whatsapp_phone text not null default '',
+  last_summary_on date
+);
+
+alter table public.professor_settings enable row level security;
+
+drop policy if exists professor_settings_own on public.professor_settings;
+create policy professor_settings_own on public.professor_settings
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

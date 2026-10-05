@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { DayOfWeek, Session, Student } from '../types'
 import { DAYS } from '../types'
+import { fetchProfessor, saveProfessor } from '../api/professor'
 import {
   fetchWhatsAppStatus,
   isValidWhatsAppPhone,
@@ -12,7 +13,6 @@ import {
   type WhatsAppConnectionStatus,
 } from '../api/whatsapp'
 
-const PROFESSOR_NAME = 'Jean'
 const SEND_DELAY_MS = 1000
 
 type SendItemStatus = 'ready' | 'pending' | 'sending' | 'ok' | 'error' | 'cancelled'
@@ -42,8 +42,16 @@ function selectionLocked(item: SendItem, sending: boolean): boolean {
   )
 }
 
-function buildMessage(name: string, dayLabel: string, time: string): string {
-  return `Olá, ${name}. Sua aula com o prof ${PROFESSOR_NAME} está agendada para ${dayLabel} às ${time}h. Avise se precisar remarcar. Até lá! 👊`
+function buildMessage(
+  name: string,
+  dayLabel: string,
+  time: string,
+  professorName: string,
+): string {
+  const who = professorName.trim()
+    ? `Sua aula com o prof ${professorName.trim()}`
+    : 'Sua aula'
+  return `Olá, ${name}. ${who} está agendada para ${dayLabel} às ${time}h. Avise se precisar remarcar. Até lá! 👊`
 }
 
 function buildQueue(
@@ -51,6 +59,7 @@ function buildQueue(
   selectedDay: DayOfWeek,
   studentsById: Map<number, Student>,
   dayLabel: string,
+  professorName: string,
 ): SendItem[] {
   return sessions
     .filter((s) => s.day === selectedDay)
@@ -64,7 +73,7 @@ function buildQueue(
         name: student.name,
         phone: toWhatsAppPhone(student.phone),
         time: session.time,
-        text: buildMessage(student.name, dayLabel, session.time),
+        text: buildMessage(student.name, dayLabel, session.time, professorName),
         selected: true,
         status: valid ? ('ready' as const) : ('error' as const),
         error: valid
@@ -89,6 +98,11 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   const [sending, setSending] = useState(false)
   const [batchDone, setBatchDone] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [professorName, setProfessorName] = useState('')
+  const [nameDraft, setNameDraft] = useState('')
+  const [phoneDraft, setPhoneDraft] = useState('')
+  const [savingProfessor, setSavingProfessor] = useState(false)
+  const [professorError, setProfessorError] = useState<string | null>(null)
   const cancelRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
   const sendingRef = useRef(false)
@@ -106,9 +120,55 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   // senão o ✓ de sucesso some na hora.
   useEffect(() => {
     if (sendingRef.current) return
-    setQueue(buildQueue(sessions, selectedDay, studentsById, dayLabel))
+    setQueue(
+      buildQueue(sessions, selectedDay, studentsById, dayLabel, professorName),
+    )
     setBatchDone(false)
-  }, [sessions, selectedDay, studentsById, dayLabel])
+  }, [sessions, selectedDay, studentsById, dayLabel, professorName])
+
+  useEffect(() => {
+    let alive = true
+    fetchProfessor()
+      .then((profile) => {
+        if (!alive) return
+        setProfessorName(profile.name)
+        setNameDraft(profile.name)
+        setPhoneDraft(profile.phone)
+        setProfessorError(null)
+      })
+      .catch((err) => {
+        if (!alive) return
+        setProfessorError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível carregar os dados do professor',
+        )
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  async function handleSaveProfessor(event: FormEvent) {
+    event.preventDefault()
+    setSavingProfessor(true)
+    setProfessorError(null)
+    try {
+      const saved = await saveProfessor({
+        name: nameDraft.trim(),
+        phone: phoneDraft.trim(),
+      })
+      setProfessorName(saved.name)
+      setNameDraft(saved.name)
+      setPhoneDraft(saved.phone)
+    } catch (err) {
+      setProfessorError(
+        err instanceof Error ? err.message : 'Não foi possível salvar',
+      )
+    } finally {
+      setSavingProfessor(false)
+    }
+  }
   const refreshStatus = useCallback(async () => {
     try {
       const data = await fetchWhatsAppStatus()
@@ -374,6 +434,50 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
       </header>
 
       <div className="page-body whatsapp-page">
+        <section className="whatsapp-card">
+          <h2 className="whatsapp-card__title">Dados do professor</h2>
+          <p className="whatsapp-card__text">
+            O nome entra no aviso dos alunos. O telefone recebe, às 21h, o
+            resumo da agenda do dia seguinte.
+          </p>
+          <form className="students-form" onSubmit={(e) => void handleSaveProfessor(e)}>
+            <div className="students-form__grid">
+              <label className="students-field">
+                <span>Nome</span>
+                <input
+                  className="students-form__input"
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  autoComplete="name"
+                />
+              </label>
+              <label className="students-field">
+                <span>WhatsApp</span>
+                <input
+                  className="students-form__input"
+                  value={phoneDraft}
+                  onChange={(e) => setPhoneDraft(e.target.value)}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="DDD + número"
+                />
+              </label>
+            </div>
+            <div className="students-form__actions">
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={savingProfessor}
+              >
+                {savingProfessor ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </form>
+          {professorError ? (
+            <p className="whatsapp-progress__error">{professorError}</p>
+          ) : null}
+        </section>
+
         {statusError ? (
           <div className="whatsapp-banner whatsapp-banner--error">{statusError}</div>
         ) : null}
