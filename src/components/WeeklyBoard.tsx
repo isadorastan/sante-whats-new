@@ -29,9 +29,6 @@ interface WeeklyBoardProps {
   onError?: (message: string | null) => void
 }
 
-const START_HOUR = 6
-const END_HOUR = 21
-
 const collisionDetection: CollisionDetection = (args) => {
   const pointerHits = pointerWithin(args)
   if (pointerHits.length > 0) return pointerHits
@@ -66,7 +63,7 @@ export function WeeklyBoard({
   }
 
   const timeSlots = useMemo(
-    () => generateTimeSlots(START_HOUR, END_HOUR, interval),
+    () => generateTimeSlots(interval),
     [interval],
   )
 
