@@ -11,7 +11,7 @@ function snapToInterval(time: string, interval: IntervalMinutes): string {
   const [h, m] = time.split(':').map(Number)
   const total = h * 60 + m
   const snapped = Math.round(total / interval) * interval
-  const slots = generateTimeSlots(6, 21, interval)
+  const slots = generateTimeSlots(interval)
   const hh = String(Math.floor(snapped / 60)).padStart(2, '0')
   const mm = String(snapped % 60).padStart(2, '0')
   const candidate = `${hh}:${mm}`
