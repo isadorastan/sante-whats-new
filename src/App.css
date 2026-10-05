@@ -842,6 +842,30 @@
   font-size: 0.85rem;
 }
 
+.whatsapp-progress__select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: fit-content;
+  margin: 0 0 0.55rem;
+  padding: 0 0.85rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.whatsapp-progress__select-all input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.whatsapp-progress__select-all input:disabled {
+  cursor: not-allowed;
+}
+
 .whatsapp-progress__list {
   list-style: none;
   margin: 0;
@@ -853,7 +877,7 @@
 
 .whatsapp-progress__item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.7rem 0.85rem;
@@ -862,11 +886,58 @@
   background: #141a17;
 }
 
+.whatsapp-progress__item.is-skipped {
+  opacity: 0.55;
+}
+
+.whatsapp-progress__check {
+  display: flex;
+  padding-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.whatsapp-progress__check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.whatsapp-progress__check input:disabled {
+  cursor: not-allowed;
+}
+
+.whatsapp-progress__text {
+  width: 100%;
+  margin: 0.35rem 0 0;
+  border: 1px solid var(--border);
+  background: #101612;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+.whatsapp-progress__text:focus {
+  outline: none;
+  border-color: rgba(61, 255, 168, 0.55);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.whatsapp-progress__text:read-only {
+  color: var(--text-muted);
+  resize: none;
+}
+
 .whatsapp-progress__main {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+  width: 100%;
 }
 
 .whatsapp-progress__name {

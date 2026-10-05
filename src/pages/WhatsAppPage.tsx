@@ -24,12 +24,22 @@ interface SendItem {
   text: string
   time: string
   status: SendItemStatus
+  selected: boolean
   error?: string
 }
 
 interface WhatsAppPageProps {
   students: Student[]
   sessions: Session[]
+}
+
+function selectionLocked(item: SendItem, sending: boolean): boolean {
+  return (
+    sending ||
+    item.status === 'pending' ||
+    item.status === 'sending' ||
+    item.status === 'ok'
+  )
 }
 
 function buildMessage(name: string, dayLabel: string, time: string): string {
@@ -55,6 +65,7 @@ function buildQueue(
         phone: toWhatsAppPhone(student.phone),
         time: session.time,
         text: buildMessage(student.name, dayLabel, session.time),
+        selected: true,
         status: valid ? ('ready' as const) : ('error' as const),
         error: valid
           ? undefined
@@ -129,12 +140,38 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
     const sent = queue.filter((i) => i.status === 'ok').length
     const failed = queue.filter((i) => i.status === 'error').length
     const cancelled = queue.filter((i) => i.status === 'cancelled').length
-    const ready = queue.filter((i) => i.status === 'ready' || i.status === 'pending')
-      .length
-    return { sent, failed, cancelled, ready, total: queue.length }
+    return { sent, failed, cancelled, total: queue.length }
   }, [queue])
 
-  const sendableCount = queue.filter((i) => i.status === 'ready').length
+  const sendableCount = queue.filter(
+    (i) => i.status === 'ready' && i.selected,
+  ).length
+
+  function updateItem(id: number, patch: Partial<Pick<SendItem, 'text' | 'selected'>>) {
+    setQueue((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    )
+  }
+
+  const selectableItems = queue.filter((item) => !selectionLocked(item, sending))
+  const allSelected =
+    selectableItems.length > 0 && selectableItems.every((item) => item.selected)
+  const someSelected = selectableItems.some((item) => item.selected)
+  const selectAllRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!selectAllRef.current) return
+    selectAllRef.current.indeterminate = someSelected && !allSelected
+  }, [someSelected, allSelected])
+
+  function toggleAll() {
+    const next = !allSelected
+    setQueue((prev) =>
+      prev.map((item) =>
+        selectionLocked(item, sending) ? item : { ...item, selected: next },
+      ),
+    )
+  }
 
   async function handleLogout() {
     try {
@@ -162,9 +199,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
     abortRef.current?.abort()
     setQueue((prev) =>
       prev.map((item) =>
-        item.status === 'pending' || item.status === 'ready'
-          ? { ...item, status: 'cancelled' }
-          : item,
+        item.status === 'pending' ? { ...item, status: 'cancelled' } : item,
       ),
     )
   }
@@ -176,7 +211,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
     setBatchDone(false)
 
     const snapshot = queue
-      .filter((item) => item.status === 'ready')
+      .filter((item) => item.status === 'ready' && item.selected)
       .map((item) => ({ ...item, status: 'pending' as const }))
 
     if (snapshot.length === 0) return
@@ -184,7 +219,9 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
     setSending(true)
     setQueue((prev) =>
       prev.map((item) =>
-        item.status === 'ready' ? { ...item, status: 'pending' } : item,
+        item.status === 'ready' && item.selected
+          ? { ...item, status: 'pending' }
+          : item,
       ),
     )
 
@@ -192,9 +229,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
       if (cancelRef.current) {
         setQueue((prev) =>
           prev.map((item) =>
-            item.status === 'pending' || item.status === 'ready'
-              ? { ...item, status: 'cancelled' }
-              : item,
+            item.status === 'pending' ? { ...item, status: 'cancelled' } : item,
           ),
         )
         break
@@ -240,7 +275,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
             prev.map((item) =>
               item.id === current.id && item.status === 'sending'
                 ? { ...item, status: 'cancelled' }
-                : item.status === 'pending' || item.status === 'ready'
+                : item.status === 'pending'
                   ? { ...item, status: 'cancelled' }
                   : item,
             ),
@@ -261,9 +296,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
       if (cancelRef.current) {
         setQueue((prev) =>
           prev.map((item) =>
-            item.status === 'pending' || item.status === 'ready'
-              ? { ...item, status: 'cancelled' }
-              : item,
+            item.status === 'pending' ? { ...item, status: 'cancelled' } : item,
           ),
         )
         break
@@ -368,8 +401,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
             </label>
 
             <p className="whatsapp-send__count">
-              {summary.total}{' '}
-              {summary.total === 1 ? 'mensagem' : 'mensagens'} para {dayLabel}
+              {sendableCount} selecionadas de {summary.total} para {dayLabel}
             </p>
 
             <div className="whatsapp-send__actions">
@@ -412,7 +444,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
               </p>
             ) : (
               <p className="whatsapp-progress__summary">
-                Prévia · {summary.ready} prontas
+                Prévia · {sendableCount} selecionadas
               </p>
             )}
           </div>
@@ -423,18 +455,50 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
               agenda.
             </div>
           ) : (
-            <ul className="whatsapp-progress__list">
+            <>
+              <label className="whatsapp-progress__select-all">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  disabled={sending || selectableItems.length === 0}
+                  onChange={toggleAll}
+                  aria-label="Selecionar todas as mensagens"
+                />
+                Selecionar todas
+              </label>
+              <ul className="whatsapp-progress__list">
               {queue.map((item) => (
                 <li
                   key={item.id}
-                  className={`whatsapp-progress__item status-${item.status}`}
+                  className={`whatsapp-progress__item status-${item.status}${item.selected ? '' : ' is-skipped'}`}
                 >
+                  <label className="whatsapp-progress__check">
+                    <input
+                      type="checkbox"
+                      checked={item.selected}
+                      disabled={selectionLocked(item, sending)}
+                      onChange={() =>
+                        updateItem(item.id, { selected: !item.selected })
+                      }
+                      aria-label={`Incluir ${item.name} no envio`}
+                    />
+                  </label>
                   <div className="whatsapp-progress__main">
                     <span className="whatsapp-progress__name">
                       {item.name}
                       <span className="whatsapp-progress__time">{item.time}</span>
                     </span>
-                    <p className="whatsapp-progress__preview">{item.text}</p>
+                    <textarea
+                      className="whatsapp-progress__text"
+                      value={item.text}
+                      rows={3}
+                      readOnly={selectionLocked(item, sending)}
+                      onChange={(e) =>
+                        updateItem(item.id, { text: e.target.value })
+                      }
+                      aria-label={`Mensagem para ${item.name}`}
+                    />
                     {item.status === 'error' && item.error ? (
                       <span className="whatsapp-progress__error">{item.error}</span>
                     ) : null}
@@ -457,7 +521,8 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
                   </span>
                 </li>
               ))}
-            </ul>
+              </ul>
+            </>
           )}
         </section>
       </div>
