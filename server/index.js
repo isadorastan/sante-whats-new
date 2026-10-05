@@ -369,6 +369,13 @@ async function createClient({ force = false } = {}) {
 }
 
 const app = express()
+// O status do WhatsApp se repete o tempo todo. Com ETag, o navegador recebe
+// 304 sem corpo e o front trata a conexão como falha.
+app.set('etag', false)
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 app.use(cors())
 app.use(express.json())
 app.post('/api/auth/login', login)

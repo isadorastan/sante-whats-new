@@ -30,7 +30,11 @@ export async function apiFetch(input: string, init: RequestInit = {}) {
   const token = getToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const res = await fetch(apiUrl(input), { ...init, headers })
+  const res = await fetch(apiUrl(input), {
+    ...init,
+    headers,
+    cache: init.cache ?? 'no-store',
+  })
   if (res.status === 401) {
     clearToken()
     onUnauthorized?.()
