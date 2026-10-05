@@ -1,16 +1,14 @@
 import type { IntervalMinutes } from '../types'
 
-/** Gera slots HH:mm de startHour até endHour (exclusivo no fim), a cada interval minutos. */
-export function generateTimeSlots(
-  startHour: number,
-  endHour: number,
-  interval: IntervalMinutes,
-): string[] {
-  const slots: string[] = []
-  const startMinutes = startHour * 60
-  const endMinutes = endHour * 60
+/** Primeiro horário da grade (05:30) e fim exclusivo (21:00). */
+const AGENDA_START_MINUTES = 5 * 60 + 30
+const AGENDA_END_MINUTES = 21 * 60
 
-  for (let m = startMinutes; m < endMinutes; m += interval) {
+/** Gera slots HH:mm das 05:30 até 21:00 (exclusivo no fim), a cada interval minutos. */
+export function generateTimeSlots(interval: IntervalMinutes): string[] {
+  const slots: string[] = []
+
+  for (let m = AGENDA_START_MINUTES; m < AGENDA_END_MINUTES; m += interval) {
     const h = Math.floor(m / 60)
     const min = m % 60
     slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`)
