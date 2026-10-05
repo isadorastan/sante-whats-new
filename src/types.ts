@@ -7,8 +7,6 @@ export type DayOfWeek =
   | 'sab'
   | 'dom'
 
-export type IntervalMinutes = 15 | 30
-
 export type AppPage = 'agenda' | 'alunos' | 'whatsapp'
 
 export interface Student {

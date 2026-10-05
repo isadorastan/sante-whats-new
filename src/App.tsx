@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AppPage, DayOfWeek, Session, Student } from './types'
+import type { AppPage, Session, Student } from './types'
 import { fetchMe } from './api/auth'
 import { clearToken, getToken, setUnauthorizedHandler } from './api/http'
 import {
@@ -10,7 +10,6 @@ import {
   fetchSessions,
   fetchStudents,
   updateSession,
-  updateSessionsBulk,
   updateStudent,
   type SessionInput,
   type SessionUpdate,
@@ -178,40 +177,6 @@ export default function App() {
     setSessions((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
-  const handleBulkUpdateSessions = useCallback(
-    async (
-      items: { id: number; day?: DayOfWeek; time?: string }[],
-    ) => {
-      if (items.length === 0) return
-
-      const patches = new Map(items.map((item) => [item.id, item]))
-      let previous: Session[] = []
-      setSessions((prev) => {
-        previous = prev.filter((s) => patches.has(s.id))
-        return prev.map((s) => {
-          const patch = patches.get(s.id)
-          if (!patch) return s
-          return {
-            ...s,
-            ...(patch.day !== undefined ? { day: patch.day } : {}),
-            ...(patch.time !== undefined ? { time: patch.time } : {}),
-          }
-        })
-      })
-
-      try {
-        const updated = await updateSessionsBulk(items)
-        const byId = new Map(updated.map((s) => [s.id, s]))
-        setSessions((prev) => prev.map((s) => byId.get(s.id) ?? s))
-      } catch (err) {
-        const snapshots = new Map(previous.map((s) => [s.id, s]))
-        setSessions((prev) => prev.map((s) => snapshots.get(s.id) ?? s))
-        throw err
-      }
-    },
-    [],
-  )
-
   if (auth === 'checking') {
     return (
       <div className="login-screen">
@@ -270,7 +235,6 @@ export default function App() {
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onDeleteSession={handleDeleteSession}
-            onBulkUpdateSessions={handleBulkUpdateSessions}
           />
         ) : null}
 

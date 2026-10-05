@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import type { DayOfWeek, IntervalMinutes, Session, Student } from '../types'
+import type { DayOfWeek, Session, Student } from '../types'
 import { DAYS } from '../types'
 import type { SessionInput, SessionUpdate } from '../api/data'
 import { generateTimeSlots, parseSlotId, slotId } from '../utils/time'
@@ -21,7 +21,6 @@ import { StudentCard } from './StudentCard'
 interface WeeklyBoardProps {
   students: Student[]
   sessions: Session[]
-  interval: IntervalMinutes
   visibleDays: DayOfWeek[]
   onCreateSession: (input: SessionInput) => Promise<Session>
   onUpdateSession: (id: number, input: SessionUpdate) => Promise<Session>
@@ -38,7 +37,6 @@ const collisionDetection: CollisionDetection = (args) => {
 export function WeeklyBoard({
   students,
   sessions,
-  interval,
   visibleDays,
   onCreateSession,
   onUpdateSession,
@@ -62,10 +60,7 @@ export function WeeklyBoard({
     ['--day-count' as string]: String(days.length),
   }
 
-  const timeSlots = useMemo(
-    () => generateTimeSlots(interval),
-    [interval],
-  )
+  const timeSlots = useMemo(() => generateTimeSlots(), [])
 
   const studentsById = useMemo(() => {
     const map = new Map<number, Student>()
