@@ -1,4 +1,4 @@
-import type { DayOfWeek, Session, Student } from '../types'
+import type { DayOfWeek, Payment, PlanPrice, Session, Student } from '../types'
 import { apiFetch } from './http'
 
 export type StudentInput = Omit<Student, 'id'>
@@ -70,6 +70,54 @@ export async function updateStudent(
 export async function deleteStudent(id: number): Promise<void> {
   const res = await apiFetch(`/api/students/${id}`, { method: 'DELETE' })
   await parseJson<void>(res)
+}
+
+export async function fetchPlanPrices(): Promise<PlanPrice[]> {
+  const res = await apiFetch('/api/plan-prices')
+  return parseJson<PlanPrice[]>(res)
+}
+
+export async function savePlanPrices(prices: PlanPrice[]): Promise<PlanPrice[]> {
+  const res = await apiFetch('/api/plan-prices', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(prices),
+  })
+  return parseJson<PlanPrice[]>(res)
+}
+
+export async function fetchPayments(month: string): Promise<Payment[]> {
+  const res = await apiFetch(`/api/payments?month=${month}`)
+  return parseJson<Payment[]>(res)
+}
+
+export async function fetchAllPayments(): Promise<Payment[]> {
+  const res = await apiFetch('/api/payments?scope=all')
+  return parseJson<Payment[]>(res)
+}
+
+export async function markPaymentPaid(
+  studentId: number,
+  month: string,
+): Promise<Payment> {
+  const res = await apiFetch(`/api/payments/${studentId}/pay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ month }),
+  })
+  return parseJson<Payment>(res)
+}
+
+export async function markPaymentUnpaid(
+  studentId: number,
+  month: string,
+): Promise<Payment> {
+  const res = await apiFetch(`/api/payments/${studentId}/unpay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ month }),
+  })
+  return parseJson<Payment>(res)
 }
 
 export async function fetchSessions(day?: DayOfWeek): Promise<Session[]> {

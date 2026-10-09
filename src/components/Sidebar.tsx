@@ -10,7 +10,9 @@ interface SidebarProps {
 const NAV_ITEMS: { id: AppPage; label: string; hint: string }[] = [
   { id: 'agenda', label: 'Agenda', hint: 'Grade semanal' },
   { id: 'alunos', label: 'Alunos', hint: 'Cadastro' },
+  { id: 'estatisticas', label: 'Estatísticas', hint: 'O negócio' },
   { id: 'whatsapp', label: 'WhatsApp', hint: 'Avisos do dia' },
+  { id: 'configuracoes', label: 'Configurações', hint: 'Tabela e professor' },
 ]
 
 export function Sidebar({

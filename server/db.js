@@ -30,6 +30,11 @@ export function requireDb(res) {
   return supabase
 }
 
+function asDate(value) {
+  if (!value) return null
+  return String(value).slice(0, 10)
+}
+
 export function mapStudent(row) {
   return {
     id: Number(row.id),
@@ -38,6 +43,32 @@ export function mapStudent(row) {
     weeklyClasses: Number(row.weekly_classes),
     planValue: Number(row.plan_value),
     color: row.color,
+    status: row.status ?? 'ativo',
+    startedOn: asDate(row.started_on),
+    endedOn: asDate(row.ended_on),
+    billingDay:
+      row.billing_day === null || row.billing_day === undefined
+        ? null
+        : Number(row.billing_day),
+    customPrice: Boolean(row.custom_price),
+  }
+}
+
+export function mapPlanPrice(row) {
+  return {
+    weeklyClasses: Number(row.weekly_classes),
+    amount: Number(row.amount),
+  }
+}
+
+export function mapPayment(row) {
+  return {
+    id: Number(row.id),
+    studentId: Number(row.student_id),
+    competence: String(row.competence).slice(0, 7),
+    amount: Number(row.amount),
+    dueOn: asDate(row.due_on),
+    paidOn: asDate(row.paid_on),
   }
 }
 

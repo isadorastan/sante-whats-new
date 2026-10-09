@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import type { Session, Student } from '../types'
+import type { Session, Student, StudentStatus } from '../types'
 import { colorForName } from '../types'
 import type { StudentInput, StudentUpdate } from '../api/data'
+import { brazilToday, formatIsoDate } from '../utils/dates'
 import {
   digitsOnly,
   formatCurrency,
@@ -23,6 +24,17 @@ interface StudentFormState {
   phone: string
   weeklyClasses: string
   planValue: string
+  status: StudentStatus
+  startedOn: string
+  endedOn: string
+  billingDay: string
+  customPrice: boolean
+}
+
+const STATUS_LABEL: Record<StudentStatus, string> = {
+  ativo: 'Ativo',
+  pausado: 'Pausado',
+  encerrado: 'Encerrado',
 }
 
 const EMPTY_FORM: StudentFormState = {
@@ -30,6 +42,15 @@ const EMPTY_FORM: StudentFormState = {
   phone: '',
   weeklyClasses: '2',
   planValue: '',
+  status: 'ativo',
+  startedOn: '',
+  endedOn: '',
+  billingDay: '',
+  customPrice: false,
+}
+
+function blankForm(): StudentFormState {
+  return { ...EMPTY_FORM, startedOn: brazilToday() }
 }
 
 function studentToForm(student: Student): StudentFormState {
@@ -41,7 +62,18 @@ function studentToForm(student: Student): StudentFormState {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }),
+    status: student.status,
+    startedOn: student.startedOn ?? '',
+    endedOn: student.endedOn ?? '',
+    billingDay: student.billingDay ? String(student.billingDay) : '',
+    customPrice: student.customPrice,
   }
+}
+
+function parseOptionalDate(value: string): string | null | undefined {
+  if (!value) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+  return value
 }
 
 function parseForm(
@@ -51,6 +83,10 @@ function parseForm(
   const phone = normalizeBrazilPhone(form.phone)
   const weeklyClasses = Number(form.weeklyClasses)
   const planValue = parseCurrencyInput(form.planValue)
+  const startedOn = parseOptionalDate(form.startedOn)
+  const endedOn = parseOptionalDate(form.endedOn)
+  const billingRaw = form.billingDay.trim()
+  const billingDay = billingRaw ? Number(billingRaw) : null
 
   if (!name) return null
   if (phone.length < 10 || phone.length > 11) return null
@@ -58,8 +94,163 @@ function parseForm(
     return null
   }
   if (planValue === null) return null
+  if (startedOn === undefined || endedOn === undefined) return null
+  if (
+    billingDay !== null &&
+    (!Number.isInteger(billingDay) || billingDay < 1 || billingDay > 28)
+  ) {
+    return null
+  }
+  if (form.status === 'encerrado' && !endedOn) return null
 
-  return { name, phone, weeklyClasses, planValue }
+  return {
+    name,
+    phone,
+    weeklyClasses,
+    planValue,
+    status: form.status,
+    startedOn,
+    endedOn: form.status === 'encerrado' ? endedOn : null,
+    billingDay,
+    customPrice: form.customPrice,
+  }
+}
+
+function studentSituation(student: Student): string {
+  const bits = [STATUS_LABEL[student.status]]
+  if (student.status === 'encerrado' && student.endedOn) {
+    bits.push(`saiu em ${formatIsoDate(student.endedOn)}`)
+  } else if (student.startedOn) {
+    bits.push(`desde ${formatIsoDate(student.startedOn)}`)
+  } else {
+    bits.push('sem data de início')
+  }
+  if (student.billingDay) bits.push(`vence dia ${student.billingDay}`)
+  else if (student.status === 'ativo') bits.push('sem vencimento')
+  if (student.customPrice) bits.push('valor combinado')
+  return bits.join(' · ')
+}
+
+function StudentFields({
+  form,
+  onChange,
+  autoFocusName,
+}: {
+  form: StudentFormState
+  onChange: <K extends keyof StudentFormState>(
+    key: K,
+    value: StudentFormState[K],
+  ) => void
+  autoFocusName?: boolean
+}) {
+  function changeStatus(status: StudentStatus) {
+    onChange('status', status)
+    onChange(
+      'endedOn',
+      status === 'encerrado' ? form.endedOn || brazilToday() : '',
+    )
+  }
+
+  return (
+    <div className="students-form__grid">
+      <label className="students-field">
+        <span>Nome</span>
+        <input
+          className="students-form__input"
+          type="text"
+          value={form.name}
+          placeholder="Nome completo"
+          autoFocus={autoFocusName}
+          onChange={(e) => onChange('name', e.target.value)}
+        />
+      </label>
+      <label className="students-field">
+        <span>Telefone</span>
+        <input
+          className="students-form__input"
+          type="tel"
+          inputMode="numeric"
+          value={form.phone}
+          placeholder="(11) 98765-4321"
+          onChange={(e) => onChange('phone', formatPhone(e.target.value))}
+        />
+      </label>
+      <label className="students-field">
+        <span>Vezes na semana</span>
+        <input
+          className="students-form__input"
+          type="number"
+          min={1}
+          max={7}
+          value={form.weeklyClasses}
+          onChange={(e) => onChange('weeklyClasses', e.target.value)}
+        />
+      </label>
+      <label className="students-field">
+        <span>Valor do plano</span>
+        <input
+          className="students-form__input"
+          type="text"
+          inputMode="decimal"
+          value={form.planValue}
+          placeholder="450,00"
+          onChange={(e) => onChange('planValue', e.target.value)}
+        />
+      </label>
+      <label className="students-field">
+        <span>Situação</span>
+        <select
+          className="students-form__input"
+          value={form.status}
+          onChange={(e) => changeStatus(e.target.value as StudentStatus)}
+        >
+          <option value="ativo">Ativo</option>
+          <option value="pausado">Pausado</option>
+          <option value="encerrado">Encerrado</option>
+        </select>
+      </label>
+      <label className="students-field">
+        <span>Início</span>
+        <input
+          className="students-form__input"
+          type="date"
+          value={form.startedOn}
+          onChange={(e) => onChange('startedOn', e.target.value)}
+        />
+      </label>
+      <label className="students-field">
+        <span>Vencimento</span>
+        <input
+          className="students-form__input"
+          type="number"
+          min={1}
+          max={28}
+          value={form.billingDay}
+          placeholder="Dia 1–28"
+          onChange={(e) => onChange('billingDay', e.target.value)}
+        />
+      </label>
+      <label className="students-check" title="Fica fora da comparação com a tabela vigente">
+        <input
+          type="checkbox"
+          checked={form.customPrice}
+          onChange={(e) => onChange('customPrice', e.target.checked)}
+        />
+        <span>Valor combinado</span>
+      </label>
+      {form.status === 'encerrado' ? (
+        <label className="students-field">
+          <span>Saída</span>
+          <input
+            className="students-form__input"
+            type="date"
+            value={form.endedOn}
+            onChange={(e) => onChange('endedOn', e.target.value)}
+          />
+        </label>
+      ) : null}
+    </div>
+  )
 }
 
 export function StudentsPage({
@@ -69,7 +260,7 @@ export function StudentsPage({
   onUpdateStudent,
   onDeleteStudent,
 }: StudentsPageProps) {
-  const [form, setForm] = useState<StudentFormState>(EMPTY_FORM)
+  const [form, setForm] = useState<StudentFormState>(blankForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [draft, setDraft] = useState<StudentFormState>(EMPTY_FORM)
   const [query, setQuery] = useState('')
@@ -130,7 +321,7 @@ export function StudentsPage({
         ...parsed,
         color: colorForName(parsed.name),
       })
-      setForm(EMPTY_FORM)
+      setForm(blankForm())
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Falha ao criar aluno')
     } finally {
@@ -167,10 +358,11 @@ export function StudentsPage({
 
   async function removeStudent(studentId: number) {
     const count = sessionCountByStudent.get(studentId) ?? 0
-    const message =
+    const aulas =
       count > 0
-        ? `Remover este aluno também tira ${count} aula${count === 1 ? '' : 's'} da agenda. Continuar?`
-        : 'Remover este aluno do cadastro?'
+        ? ` e tira ${count} aula${count === 1 ? '' : 's'} da agenda`
+        : ''
+    const message = `Remover apaga o aluno${aulas}. O histórico de retenção também some. Para guardar a saída, encerre o aluno na edição. Continuar?`
     if (!window.confirm(message)) return
 
     setBusy(true)
@@ -205,51 +397,7 @@ export function StudentsPage({
 
         <form className="students-form" onSubmit={(e) => void handleCreate(e)}>
           <p className="students-form__label">Novo aluno</p>
-          <div className="students-form__grid">
-            <label className="students-field">
-              <span>Nome</span>
-              <input
-                className="students-form__input"
-                type="text"
-                value={form.name}
-                placeholder="Nome completo"
-                onChange={(e) => updateForm('name', e.target.value)}
-              />
-            </label>
-            <label className="students-field">
-              <span>Telefone</span>
-              <input
-                className="students-form__input"
-                type="tel"
-                inputMode="numeric"
-                value={form.phone}
-                placeholder="(11) 98765-4321"
-                onChange={(e) => updateForm('phone', formatPhone(e.target.value))}
-              />
-            </label>
-            <label className="students-field">
-              <span>Vezes na semana</span>
-              <input
-                className="students-form__input"
-                type="number"
-                min={1}
-                max={7}
-                value={form.weeklyClasses}
-                onChange={(e) => updateForm('weeklyClasses', e.target.value)}
-              />
-            </label>
-            <label className="students-field">
-              <span>Valor do plano</span>
-              <input
-                className="students-form__input"
-                type="text"
-                inputMode="decimal"
-                value={form.planValue}
-                placeholder="450,00"
-                onChange={(e) => updateForm('planValue', e.target.value)}
-              />
-            </label>
-          </div>
+          <StudentFields form={form} onChange={updateForm} />
           <div className="students-form__actions">
             <button type="submit" className="btn btn--primary" disabled={!canCreate}>
               Adicionar aluno
@@ -299,54 +447,11 @@ export function StudentsPage({
                         void saveEdit(student.id)
                       }}
                     >
-                      <div className="students-form__grid">
-                        <label className="students-field">
-                          <span>Nome</span>
-                          <input
-                            className="students-form__input"
-                            value={draft.name}
-                            autoFocus
-                            onChange={(e) => updateDraft('name', e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Escape') cancelEdit()
-                            }}
-                          />
-                        </label>
-                        <label className="students-field">
-                          <span>Telefone</span>
-                          <input
-                            className="students-form__input"
-                            type="tel"
-                            value={draft.phone}
-                            onChange={(e) =>
-                              updateDraft('phone', formatPhone(e.target.value))
-                            }
-                          />
-                        </label>
-                        <label className="students-field">
-                          <span>Vezes na semana</span>
-                          <input
-                            className="students-form__input"
-                            type="number"
-                            min={1}
-                            max={7}
-                            value={draft.weeklyClasses}
-                            onChange={(e) =>
-                              updateDraft('weeklyClasses', e.target.value)
-                            }
-                          />
-                        </label>
-                        <label className="students-field">
-                          <span>Valor do plano</span>
-                          <input
-                            className="students-form__input"
-                            type="text"
-                            inputMode="decimal"
-                            value={draft.planValue}
-                            onChange={(e) => updateDraft('planValue', e.target.value)}
-                          />
-                        </label>
-                      </div>
+                      <StudentFields
+                        form={draft}
+                        onChange={updateDraft}
+                        autoFocusName
+                      />
                       <div className="students-form__actions">
                         <button
                           type="submit"
@@ -363,12 +468,15 @@ export function StudentsPage({
                   ) : (
                     <>
                       <div className="students-list__info">
-                        <span className="students-list__name">{student.name}</span>                        <span className="students-list__meta">
+                        <span className="students-list__name">{student.name}</span>
+                        <span className="students-list__meta">
                           {formatPhone(student.phone)} · {student.weeklyClasses}x/semana ·{' '}
                           {formatCurrency(student.planValue)}
                         </span>
                         <span className="students-list__meta">
                           {aulas} {aulas === 1 ? 'aula na agenda' : 'aulas na agenda'}
+                          {' · '}
+                          {studentSituation(student)}
                         </span>
                       </div>
                       <div className="students-list__actions">

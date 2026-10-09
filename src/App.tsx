@@ -19,7 +19,9 @@ import {
 import { Sidebar } from './components/Sidebar'
 import { AgendaPage } from './pages/AgendaPage'
 import { LoginPage } from './pages/LoginPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { StudentsPage } from './pages/StudentsPage'
+import { StatsPage } from './pages/StatsPage'
 import { WhatsAppPage } from './pages/WhatsAppPage'
 import './App.css'
 
@@ -248,9 +250,15 @@ export default function App() {
           />
         ) : null}
 
+        {!loading && !error && page === 'estatisticas' ? (
+          <StatsPage students={students} sessions={sessions} />
+        ) : null}
+
         {!loading && !error && page === 'whatsapp' ? (
           <WhatsAppPage students={students} sessions={sessions} />
         ) : null}
+
+        {!loading && !error && page === 'configuracoes' ? <SettingsPage /> : null}
       </div>
     </div>
   )

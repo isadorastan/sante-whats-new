@@ -7,7 +7,9 @@ export type DayOfWeek =
   | 'sab'
   | 'dom'
 
-export type AppPage = 'agenda' | 'alunos' | 'whatsapp'
+export type AppPage = 'agenda' | 'alunos' | 'estatisticas' | 'whatsapp' | 'configuracoes'
+
+export type StudentStatus = 'ativo' | 'pausado' | 'encerrado'
 
 export interface Student {
   id: number
@@ -18,6 +20,32 @@ export interface Student {
   /** Valor do plano em reais */
   planValue: number
   color: string
+  status: StudentStatus
+  /** YYYY-MM-DD */
+  startedOn: string | null
+  /** YYYY-MM-DD */
+  endedOn: string | null
+  /** Dia do mês, de 1 a 28 */
+  billingDay: number | null
+  /** Desconto combinado: fica fora da comparação com a tabela vigente */
+  customPrice: boolean
+}
+
+export interface PlanPrice {
+  weeklyClasses: number
+  amount: number
+}
+
+export interface Payment {
+  id: number
+  studentId: number
+  /** YYYY-MM */
+  competence: string
+  amount: number
+  /** YYYY-MM-DD */
+  dueOn: string | null
+  /** YYYY-MM-DD */
+  paidOn: string | null
 }
 
 export interface Session {

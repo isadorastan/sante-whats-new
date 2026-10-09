@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { fetchProfessor, saveProfessor } from '../api/professor'
+import { fetchProfessor } from '../api/professor'
 import {
   fetchWhatsAppStatus,
   sendWhatsAppOne,
@@ -12,7 +12,6 @@ import { WhatsAppPage } from './WhatsAppPage'
 
 vi.mock('../api/professor', () => ({
   fetchProfessor: vi.fn(),
-  saveProfessor: vi.fn(),
 }))
 
 vi.mock('../api/whatsapp', async (importOriginal) => {
@@ -32,6 +31,11 @@ function student(overrides: Partial<Student> & Pick<Student, 'id' | 'name' | 'ph
     weeklyClasses: 2,
     planValue: 200,
     color: '#2dd4a8',
+    status: 'ativo',
+    startedOn: null,
+    endedOn: null,
+    billingDay: null,
+    customPrice: false,
     ...overrides,
   }
 }
@@ -86,10 +90,6 @@ beforeEach(() => {
   })
   vi.mocked(sendWhatsAppOne).mockResolvedValue({ ok: true })
   vi.mocked(fetchProfessor).mockResolvedValue({
-    name: 'Jean',
-    phone: '51999999999',
-  })
-  vi.mocked(saveProfessor).mockResolvedValue({
     name: 'Jean',
     phone: '51999999999',
   })
