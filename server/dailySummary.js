@@ -124,12 +124,13 @@ let running = false
 
 export async function runDailySummaries({
   db,
-  isConnected,
-  sendText,
+  sendForUser,
   now = new Date(),
   force = false,
 }) {
-  if (!db || !isConnected()) return { sent: 0, reason: 'disconnected' }
+  if (!db || typeof sendForUser !== 'function') {
+    return { sent: 0, reason: 'disconnected' }
+  }
   if (running) return { sent: 0, reason: 'busy' }
   running = true
   let sent = 0
@@ -166,7 +167,12 @@ export async function runDailySummaries({
 
       try {
         const rows = await loadRows(db, row.user_id, day)
-        await sendText(phone, buildSummaryText(label, rows))
+        const delivered = await sendForUser(
+          row.user_id,
+          phone,
+          buildSummaryText(label, rows),
+        )
+        if (!delivered) continue
         sent += 1
         if (!force) {
           const { error: updateError } = await db

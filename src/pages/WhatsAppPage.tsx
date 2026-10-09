@@ -13,7 +13,8 @@ import {
   type WhatsAppConnectionStatus,
 } from '../api/whatsapp'
 
-const SEND_DELAY_MS = 1000
+const MIN_GAP_SECONDS = 15
+const MAX_GAP_SECONDS = 30
 
 type SendItemStatus = 'ready' | 'pending' | 'sending' | 'ok' | 'error' | 'cancelled'
 
@@ -42,16 +43,52 @@ function selectionLocked(item: SendItem, sending: boolean): boolean {
   )
 }
 
+function spin(template: string): string {
+  return template.replace(/\{([^{}]+)\}/g, (_match, group: string) => {
+    const options = group.split('|')
+    return options[Math.floor(Math.random() * options.length)] ?? ''
+  })
+}
+
+/** 09:00 vira 9h; 05:30 vira 5:30h. */
+function formatClassTime(time: string): string {
+  const [hourRaw, minute] = time.split(':')
+  const hour = String(Number(hourRaw))
+  if (!minute || minute === '00') return `${hour}h`
+  return `${hour}:${minute}h`
+}
+
+function firstName(name: string): string {
+  const first = name.trim().split(/\s+/)[0]
+  return first || name.trim()
+}
+
 function buildMessage(
   name: string,
   dayLabel: string,
   time: string,
   professorName: string,
-): string {
-  const who = professorName.trim()
-    ? `Sua aula com o prof ${professorName.trim()}`
-    : 'Sua aula'
-  return `Olá, ${name}. ${who} está agendada para ${dayLabel} às ${time}h. Avise se precisar remarcar. Até lá! 👊`
+  previousCore = '',
+): { text: string; core: string } {
+  const clock = formatClassTime(time)
+  const dayLower = dayLabel.toLocaleLowerCase('pt-BR')
+  const professor = professorName.trim()
+  const withProf = professor ? ` com o prof ${professor}` : ''
+  const cores = [
+    `Aula ${dayLower} às ${clock}${withProf}`,
+    `${dayLabel} às ${clock}${withProf}`,
+    `Te espero ${dayLower} às ${clock}`,
+  ]
+  let core = ''
+  let text = ''
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    core = cores[Math.floor(Math.random() * cores.length)] ?? cores[0]
+    text = spin(
+      `{Oi|Olá|Fala}, ${firstName(name)}. ${core}. {Me avisa se precisar remarcar|Se precisar remarcar, me chama}.`,
+    )
+    if (core !== previousCore) break
+  }
+  return { text, core }
 }
 
 function buildQueue(
@@ -61,31 +98,42 @@ function buildQueue(
   dayLabel: string,
   professorName: string,
 ): SendItem[] {
-  return sessions
-    .filter((s) => s.day === selectedDay)
-    .map((session): SendItem | null => {
+  const ordered = sessions
+    .filter((session) => session.day === selectedDay)
+    .flatMap((session) => {
       const student = studentsById.get(session.studentId)
-      if (!student) return null
-
-      const valid = isValidWhatsAppPhone(student.phone)
-      return {
-        id: session.id,
-        name: student.name,
-        phone: toWhatsAppPhone(student.phone),
-        time: session.time,
-        text: buildMessage(student.name, dayLabel, session.time, professorName),
-        selected: true,
-        status: valid ? ('ready' as const) : ('error' as const),
-        error: valid
-          ? undefined
-          : 'Telefone incompleto — edite o aluno (DDD + número)',
-      }
+      return student ? [{ session, student }] : []
     })
-    .filter((item): item is SendItem => item !== null)
     .sort(
       (a, b) =>
-        a.time.localeCompare(b.time) || a.name.localeCompare(b.name, 'pt-BR'),
+        a.session.time.localeCompare(b.session.time) ||
+        a.student.name.localeCompare(b.student.name, 'pt-BR'),
     )
+
+  let previousCore = ''
+  return ordered.map(({ session, student }) => {
+    const valid = isValidWhatsAppPhone(student.phone)
+    const message = buildMessage(
+      student.name,
+      dayLabel,
+      session.time,
+      professorName,
+      previousCore,
+    )
+    previousCore = message.core
+    return {
+      id: session.id,
+      name: student.name,
+      phone: toWhatsAppPhone(student.phone),
+      time: session.time,
+      text: message.text,
+      selected: true,
+      status: valid ? ('ready' as const) : ('error' as const),
+      error: valid
+        ? undefined
+        : 'Telefone incompleto — edite o aluno (DDD + número)',
+    }
+  })
 }
 
 export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
@@ -97,6 +145,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   const [queue, setQueue] = useState<SendItem[]>([])
   const [sending, setSending] = useState(false)
   const [batchDone, setBatchDone] = useState(false)
+  const [waitSeconds, setWaitSeconds] = useState<number | null>(null)
   const [checking, setChecking] = useState(false)
   const [professorName, setProfessorName] = useState('')
   const [professorReady, setProfessorReady] = useState(false)
@@ -360,6 +409,18 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
         )
       }
 
+      if (i < snapshot.length - 1 && !cancelRef.current) {
+        const gap =
+          MIN_GAP_SECONDS +
+          Math.floor(Math.random() * (MAX_GAP_SECONDS - MIN_GAP_SECONDS + 1))
+        for (let left = gap; left > 0; left -= 1) {
+          if (cancelRef.current) break
+          setWaitSeconds(left)
+          await sleep(1000)
+        }
+        setWaitSeconds(null)
+      }
+
       if (cancelRef.current) {
         setQueue((prev) =>
           prev.map((item) =>
@@ -368,13 +429,10 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
         )
         break
       }
-
-      if (i < snapshot.length - 1) {
-        await sleep(SEND_DELAY_MS)
-      }
     }
 
     abortRef.current = null
+    setWaitSeconds(null)
     setSending(false)
     setBatchDone(true)
   }
@@ -490,7 +548,8 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
             </label>
 
             <p className="whatsapp-send__count">
-              {sendableCount} selecionadas de {summary.total} para {dayLabel}
+              {sendableCount} selecionadas de {summary.total} para {dayLabel}. Cerca de
+              uma mensagem a cada 15–30 segundos.
             </p>
 
             <div className="whatsapp-send__actions">
@@ -524,7 +583,9 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
         <section className="whatsapp-card whatsapp-progress">
           <div className="whatsapp-progress__header">
             <h2 className="whatsapp-card__title">Envio — {dayLabel}</h2>
-            {sending ? (
+            {waitSeconds !== null ? (
+              <p className="whatsapp-progress__summary">Próxima em {waitSeconds}s</p>
+            ) : sending ? (
               <p className="whatsapp-progress__summary">Enviando...</p>
             ) : batchDone ? (
               <p className="whatsapp-progress__summary">

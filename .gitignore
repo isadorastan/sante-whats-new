@@ -15,6 +15,7 @@ dist-ssr
 # WhatsApp session (local credentials)
 server/.wwebjs_auth
 server/.wwebjs_cache
+server/.baileys
 
 # Server secrets
 server/.env

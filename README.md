@@ -7,7 +7,7 @@ O front publicado fica em https://isadorastan.github.io/sante-whats-new/. O back
 - IP: `213.199.35.215` (`ssh root@213.199.35.215`)
 - Processo: `systemctl` → `sante-whats`
 
-O `server/.env` e a sessão do WhatsApp em `server/.wwebjs_auth` não entram no git. Um restart não pede QR de novo e não apaga a chave do Supabase.
+O `server/.env` e as sessões do WhatsApp em `server/.baileys` (uma pasta por professor) não entram no git. Um restart não pede QR de novo e não apaga a chave do Supabase.
 
 ## Atualizar o backend
 
@@ -31,4 +31,4 @@ systemctl restart sante-whats
 journalctl -u sante-whats -f
 ```
 
-O log tem que mostrar `WhatsApp client ready`. `Ctrl+C` só fecha o acompanhamento do log. O serviço continua rodando.
+O log tem que mostrar `WhatsApp server on` e, para cada professor já conectado, `WhatsApp conectado`. `Ctrl+C` só fecha o acompanhamento do log. O serviço continua rodando.

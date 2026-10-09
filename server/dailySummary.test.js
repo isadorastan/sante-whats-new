@@ -3,6 +3,7 @@ import {
   addIsoDays,
   buildSummaryText,
   isSummaryDue,
+  runDailySummaries,
   saoPauloClock,
   weekdayId,
 } from './dailySummary.js'
@@ -53,4 +54,61 @@ it('monta o resumo com aulas agrupadas e o aviso de dia vazio', () => {
   expect(buildSummaryText('Quarta', [])).toBe(
     'Agenda de amanhã — Quarta\n\nNão tem aulas.',
   )
+})
+
+it('pula o professor cujo WhatsApp não está conectado', async () => {
+  const updates = []
+  const db = {
+    from(table) {
+      if (table === 'professor_settings') {
+        return {
+          select: async () => ({
+            data: [
+              {
+                user_id: 'offline',
+                whatsapp_phone: '51999999999',
+                last_summary_on: null,
+              },
+              {
+                user_id: 'online',
+                whatsapp_phone: '51988888888',
+                last_summary_on: null,
+              },
+            ],
+            error: null,
+          }),
+          update(patch) {
+            return {
+              eq(_column, userId) {
+                updates.push(userId)
+                return Promise.resolve({ error: null })
+              },
+            }
+          },
+        }
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        }),
+      }
+    },
+  }
+
+  const sent = []
+  const result = await runDailySummaries({
+    db,
+    now: new Date('2026-10-05T00:00:00Z'),
+    sendForUser: async (userId) => {
+      if (userId === 'offline') return false
+      sent.push(userId)
+      return true
+    },
+  })
+
+  expect(result.sent).toBe(1)
+  expect(sent).toEqual(['online'])
+  expect(updates).toEqual(['online'])
 })

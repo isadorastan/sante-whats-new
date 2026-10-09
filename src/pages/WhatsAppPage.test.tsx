@@ -49,7 +49,7 @@ function session(
   }
 }
 
-const ana = student({ id: 1, name: 'Ana', phone: '51911111111' })
+const ana = student({ id: 1, name: 'Ana Costa', phone: '51911111111' })
 const bruno = student({ id: 2, name: 'Bruno', phone: '51922222222' })
 const duda = student({ id: 3, name: 'Duda', phone: '1234' })
 const carla = student({ id: 4, name: 'Carla', phone: '51933333333' })
@@ -62,6 +62,19 @@ const tuesday = [
 const wednesday = [
   session({ id: 21, studentId: carla.id, day: 'qua', time: '08:00' }),
 ]
+
+function reminderPattern(name: string, dayLabel: string, clock: string): RegExp {
+  const dayLower = dayLabel.toLocaleLowerCase('pt-BR')
+  const withProf = ' com o prof Jean'
+  const cores = [
+    `Aula ${dayLower} às ${clock}${withProf}`,
+    `${dayLabel} às ${clock}${withProf}`,
+    `Te espero ${dayLower} às ${clock}`,
+  ].map((core) => core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(
+    `^(Oi|Olá|Fala), ${name}\\. (${cores.join('|')})\\. (Me avisa se remarcar|Se precisar remarcar, me chama)\\.$`,
+  )
+}
 
 function renderPage() {
   return render(
@@ -79,7 +92,7 @@ async function openConnectedPage() {
     const value = (
       screen.getByRole('textbox', { name: 'Mensagem para Bruno' }) as HTMLTextAreaElement
     ).value
-    expect(value).toContain('prof Jean')
+    expect(value).toMatch(reminderPattern('Bruno', 'Terça', '5:30h'))
   })
 }
 
@@ -98,21 +111,28 @@ beforeEach(() => {
 it('lista só as aulas do dia, marcadas e com o texto gerado', async () => {
   await openConnectedPage()
 
-  expect(screen.getByText('2 selecionadas de 3 para Terça')).toBeInTheDocument()
+  expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
+  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
   expect(screen.queryByRole('textbox', { name: 'Mensagem para Carla' })).not.toBeInTheDocument()
 
   const messages = screen.getAllByRole('textbox', { name: /Mensagem para/ })
   expect(messages.map((field) => field.getAttribute('aria-label'))).toEqual([
     'Mensagem para Bruno',
     'Mensagem para Duda',
-    'Mensagem para Ana',
+    'Mensagem para Ana Costa',
   ])
 
   expect(screen.getByRole('checkbox', { name: 'Incluir Bruno no envio' })).toBeChecked()
-  expect(screen.getByRole('checkbox', { name: 'Incluir Ana no envio' })).toBeChecked()
-  expect(screen.getByRole('textbox', { name: 'Mensagem para Bruno' })).toHaveValue(
-    'Olá, Bruno. Sua aula com o prof Jean está agendada para Terça às 05:30h. Avise se precisar remarcar. Até lá! 👊',
-  )
+  expect(screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' })).toBeChecked()
+  expect(
+    (screen.getByRole('textbox', { name: 'Mensagem para Bruno' }) as HTMLTextAreaElement)
+      .value,
+  ).toMatch(reminderPattern('Bruno', 'Terça', '5:30h'))
+  expect(
+    (screen.getByRole('textbox', { name: 'Mensagem para Ana Costa' }) as HTMLTextAreaElement)
+      .value,
+  ).toMatch(reminderPattern('Ana', 'Terça', '7h'))
+  expect(screen.getByText(/Ana Costa/)).toBeInTheDocument()
 })
 
 it('deixa editar a mensagem e ignora telefone inválido no lote', async () => {
@@ -126,7 +146,8 @@ it('deixa editar a mensagem e ignora telefone inválido no lote', async () => {
   expect(brunoMessage).toHaveValue('Oi, Bruno. Te espero às 5:30.')
   expect(screen.getByText('Telefone incompleto — edite o aluno (DDD + número)')).toBeInTheDocument()
   expect(screen.getByRole('checkbox', { name: 'Incluir Duda no envio' })).toBeChecked()
-  expect(screen.getByText('2 selecionadas de 3 para Terça')).toBeInTheDocument()
+  expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
+  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
 })
 
 it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', async () => {
@@ -136,7 +157,7 @@ it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', asy
   const selectAll = screen.getByRole('checkbox', {
     name: 'Selecionar todas as mensagens',
   })
-  const ana = screen.getByRole('checkbox', { name: 'Incluir Ana no envio' })
+  const ana = screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' })
   const bruno = screen.getByRole('checkbox', { name: 'Incluir Bruno no envio' })
   const send = screen.getByRole('button', { name: 'Enviar agora' })
 
@@ -145,17 +166,18 @@ it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', asy
 
   await user.click(ana)
   expect(selectAll).toBePartiallyChecked()
-  expect(screen.getByText('1 selecionadas de 3 para Terça')).toBeInTheDocument()
+  expect(screen.getByText(/1 selecionadas de 3 para Terça/)).toBeInTheDocument()
 
   await user.click(selectAll)
   expect(ana).toBeChecked()
   expect(bruno).toBeChecked()
-  expect(screen.getByText('2 selecionadas de 3 para Terça')).toBeInTheDocument()
+  expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
+  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
 
   await user.click(selectAll)
   expect(ana).not.toBeChecked()
   expect(bruno).not.toBeChecked()
-  expect(screen.getByText('0 selecionadas de 3 para Terça')).toBeInTheDocument()
+  expect(screen.getByText(/0 selecionadas de 3 para Terça/)).toBeInTheDocument()
   expect(send).toBeDisabled()
 })
 
@@ -164,19 +186,23 @@ it('descarta a edição ao trocar o dia e volta tudo marcado', async () => {
   await openConnectedPage()
 
   const brunoMessage = screen.getByRole('textbox', { name: 'Mensagem para Bruno' })
-  const original = (brunoMessage as HTMLTextAreaElement).value
   await user.clear(brunoMessage)
   await user.type(brunoMessage, 'Texto que não deve permanecer')
   await user.click(screen.getByRole('checkbox', { name: 'Incluir Bruno no envio' }))
 
   await user.selectOptions(screen.getByLabelText('Dia da semana'), 'qua')
-  expect(screen.getByRole('textbox', { name: 'Mensagem para Carla' })).toHaveValue(
-    'Olá, Carla. Sua aula com o prof Jean está agendada para Quarta às 08:00h. Avise se precisar remarcar. Até lá! 👊',
-  )
+  expect(
+    (screen.getByRole('textbox', { name: 'Mensagem para Carla' }) as HTMLTextAreaElement)
+      .value,
+  ).toMatch(reminderPattern('Carla', 'Quarta', '8h'))
   expect(screen.getByRole('checkbox', { name: 'Incluir Carla no envio' })).toBeChecked()
 
   await user.selectOptions(screen.getByLabelText('Dia da semana'), 'ter')
-  expect(screen.getByRole('textbox', { name: 'Mensagem para Bruno' })).toHaveValue(original)
+  const restored = (
+    screen.getByRole('textbox', { name: 'Mensagem para Bruno' }) as HTMLTextAreaElement
+  ).value
+  expect(restored).not.toBe('Texto que não deve permanecer')
+  expect(restored).toMatch(reminderPattern('Bruno', 'Terça', '5:30h'))
   expect(screen.getByRole('checkbox', { name: 'Incluir Bruno no envio' })).toBeChecked()
 })
 
@@ -187,7 +213,7 @@ it('envia só as mensagens marcadas e válidas, com o texto editado', async () =
   const brunoMessage = screen.getByRole('textbox', { name: 'Mensagem para Bruno' })
   await user.clear(brunoMessage)
   await user.type(brunoMessage, 'Oi, Bruno. Te espero às 5:30.')
-  await user.click(screen.getByRole('checkbox', { name: 'Incluir Ana no envio' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' }))
 
   await user.click(screen.getByRole('button', { name: 'Enviar agora' }))
 
@@ -207,7 +233,7 @@ it('envia só as mensagens marcadas e válidas, com o texto editado', async () =
     'readonly',
   )
   expect(screen.getByRole('checkbox', { name: 'Incluir Bruno no envio' })).toBeDisabled()
-  expect(screen.getByRole('textbox', { name: 'Mensagem para Ana' })).not.toHaveAttribute(
+  expect(screen.getByRole('textbox', { name: 'Mensagem para Ana Costa' })).not.toHaveAttribute(
     'readonly',
   )
 })
@@ -223,7 +249,7 @@ it('trava a seleção e o texto enquanto o envio está em andamento', async () =
   )
   await openConnectedPage()
 
-  await user.click(screen.getByRole('checkbox', { name: 'Incluir Ana no envio' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' }))
   await user.click(screen.getByRole('button', { name: 'Enviar agora' }))
 
   await waitFor(() => {
@@ -234,11 +260,11 @@ it('trava a seleção e o texto enquanto o envio está em andamento', async () =
   expect(screen.getByRole('textbox', { name: 'Mensagem para Bruno' })).toHaveAttribute(
     'readonly',
   )
-  expect(screen.getByRole('checkbox', { name: 'Incluir Ana no envio' })).toBeDisabled()
+  expect(screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' })).toBeDisabled()
 
   finishSend({ ok: true })
   await waitFor(() => {
-    expect(screen.getByRole('checkbox', { name: 'Incluir Ana no envio' })).toBeEnabled()
+    expect(screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' })).toBeEnabled()
   })
   expect(screen.getByRole('textbox', { name: 'Mensagem para Bruno' })).toHaveAttribute(
     'readonly',
