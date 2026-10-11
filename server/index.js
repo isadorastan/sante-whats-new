@@ -154,6 +154,11 @@ const server = app.listen(PORT, () => {
   setInterval(() => void tickDailySummary(), 60_000)
 })
 
+// A espera entre mensagens passa de 30s. O Node fecha conexão ociosa em 5s
+// e o navegador reutiliza essa ligação morta na mensagem seguinte.
+server.keepAliveTimeout = 120_000
+server.headersTimeout = 125_000
+
 server.on('error', (err) => {
   console.error('Failed to start server', err)
   process.exit(1)

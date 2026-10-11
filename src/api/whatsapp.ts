@@ -43,6 +43,19 @@ export async function sendWhatsAppOne(
   payload: SendOnePayload,
   signal?: AbortSignal,
 ): Promise<SendOneResult> {
+  try {
+    return await postSend(payload, signal)
+  } catch (err) {
+    if (signal?.aborted || !isClosedConnection(err)) throw err
+    await sleep(1500)
+    return await postSend(payload, signal)
+  }
+}
+
+async function postSend(
+  payload: SendOnePayload,
+  signal?: AbortSignal,
+): Promise<SendOneResult> {
   const res = await apiFetch('/api/whatsapp/send-one', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,6 +68,12 @@ export async function sendWhatsAppOne(
     return { ok: false, error: data?.error ?? 'Falha ao enviar mensagem' }
   }
   return data ?? { ok: true }
+}
+
+function isClosedConnection(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'AbortError') return false
+  const message = err instanceof Error ? err.message : String(err)
+  return /failed to fetch|network|connection closed|err_connection_closed/i.test(message)
 }
 
 export function toWhatsAppPhone(phone: string): string {
