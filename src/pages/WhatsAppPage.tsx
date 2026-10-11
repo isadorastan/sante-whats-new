@@ -13,8 +13,8 @@ import {
   type WhatsAppConnectionStatus,
 } from '../api/whatsapp'
 
-const MIN_GAP_SECONDS = 15
-const MAX_GAP_SECONDS = 30
+const MIN_GAP_SECONDS = 4
+const MAX_GAP_SECONDS = 8
 
 type SendItemStatus = 'ready' | 'pending' | 'sending' | 'ok' | 'error' | 'cancelled'
 
@@ -549,7 +549,7 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
 
             <p className="whatsapp-send__count">
               {sendableCount} selecionadas de {summary.total} para {dayLabel}. Cerca de
-              uma mensagem a cada 15–30 segundos.
+              uma mensagem a cada 4–8 segundos.
             </p>
 
             <div className="whatsapp-send__actions">

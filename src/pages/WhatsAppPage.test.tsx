@@ -72,7 +72,7 @@ function reminderPattern(name: string, dayLabel: string, clock: string): RegExp 
     `Te espero ${dayLower} às ${clock}`,
   ].map((core) => core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   return new RegExp(
-    `^(Oi|Olá|Fala), ${name}\\. (${cores.join('|')})\\. (Me avisa se remarcar|Se precisar remarcar, me chama)\\.$`,
+    `^(Oi|Olá|Fala), ${name}\\. (${cores.join('|')})\\. (Me avisa se precisar remarcar|Se precisar remarcar, me chama)\\.$`,
   )
 }
 
@@ -112,7 +112,7 @@ it('lista só as aulas do dia, marcadas e com o texto gerado', async () => {
   await openConnectedPage()
 
   expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
-  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
+  expect(screen.getByText(/4–8 segundos/)).toBeInTheDocument()
   expect(screen.queryByRole('textbox', { name: 'Mensagem para Carla' })).not.toBeInTheDocument()
 
   const messages = screen.getAllByRole('textbox', { name: /Mensagem para/ })
@@ -147,7 +147,7 @@ it('deixa editar a mensagem e ignora telefone inválido no lote', async () => {
   expect(screen.getByText('Telefone incompleto — edite o aluno (DDD + número)')).toBeInTheDocument()
   expect(screen.getByRole('checkbox', { name: 'Incluir Duda no envio' })).toBeChecked()
   expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
-  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
+  expect(screen.getByText(/4–8 segundos/)).toBeInTheDocument()
 })
 
 it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', async () => {
@@ -172,7 +172,7 @@ it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', asy
   expect(ana).toBeChecked()
   expect(bruno).toBeChecked()
   expect(screen.getByText(/2 selecionadas de 3 para Terça/)).toBeInTheDocument()
-  expect(screen.getByText(/15–30 segundos/)).toBeInTheDocument()
+  expect(screen.getByText(/4–8 segundos/)).toBeInTheDocument()
 
   await user.click(selectAll)
   expect(ana).not.toBeChecked()

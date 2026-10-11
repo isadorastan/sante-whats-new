@@ -13,7 +13,7 @@ import { toWhatsAppDigits } from './phone.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const AUTH_ROOT = path.join(__dirname, '.baileys')
-const MIN_SEND_GAP_MS = 12_000
+const MIN_SEND_GAP_MS = 3_000
 const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const logger = pino({ level: 'silent' })
