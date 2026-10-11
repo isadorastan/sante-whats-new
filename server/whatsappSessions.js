@@ -68,7 +68,34 @@ function createSlot(userId, dir) {
     closing: false,
     sendChain: Promise.resolve(),
     lastSentAt: 0,
+    offlineTimer: null,
   }
+}
+
+const OFFLINE_PULSE_MS = 20_000
+
+function stopOfflinePulse(session) {
+  if (!session.offlineTimer) return
+  clearInterval(session.offlineTimer)
+  session.offlineTimer = null
+}
+
+async function markOffline(session) {
+  const sock = session.sock
+  if (!sock || session.status !== 'connected') return
+  try {
+    await sock.sendPresenceUpdate('unavailable')
+  } catch {
+    // a sessão pode cair no meio do aviso
+  }
+}
+
+function startOfflinePulse(session) {
+  stopOfflinePulse(session)
+  void markOffline(session)
+  session.offlineTimer = setInterval(() => {
+    void markOffline(session)
+  }, OFFLINE_PULSE_MS)
 }
 
 function publicStatus(session) {
@@ -114,6 +141,7 @@ async function paced(session, task) {
 
 async function openSocket(session) {
   if (session.starting || session.closing) return
+  stopOfflinePulse(session)
   session.starting = true
   session.status = 'initializing'
   session.qr = null
@@ -163,10 +191,12 @@ async function onConnection(session, update) {
     session.status = 'connected'
     session.qr = null
     console.log('WhatsApp conectado', session.userId)
+    startOfflinePulse(session)
     return
   }
   if (connection !== 'close') return
 
+  stopOfflinePulse(session)
   const code = lastDisconnect?.error?.output?.statusCode
   if (session.sock) session.sock = null
   session.qr = null
@@ -212,6 +242,7 @@ export async function logoutWhatsApp(userId) {
   const session = sessions.get(userId)
   if (session) {
     session.closing = true
+    stopOfflinePulse(session)
     session.status = 'disconnected'
     session.qr = null
     try {
@@ -272,6 +303,7 @@ export async function sendWhatsAppText(userId, phone, text) {
     try {
       await sock.sendMessage(hit.jid, { text })
       logSend(userId, digits, true)
+      void markOffline(session)
     } catch (err) {
       throw logConnectionError(session, digits, err)
     }
