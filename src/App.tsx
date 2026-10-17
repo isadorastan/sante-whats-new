@@ -18,6 +18,7 @@ import {
 } from './api/data'
 import { Sidebar } from './components/Sidebar'
 import { AgendaPage } from './pages/AgendaPage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StudentsPage } from './pages/StudentsPage'
@@ -33,6 +34,7 @@ export default function App() {
   )
   const [authError, setAuthError] = useState<string | null>(null)
   const [page, setPage] = useState<AppPage>('agenda')
+  const [visitante, setVisitante] = useState<'landing' | 'login'>('landing')
   const [students, setStudents] = useState<Student[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +110,7 @@ export default function App() {
     setSessions([])
     setError(null)
     setPage('agenda')
+    setVisitante('landing')
     setAuth('out')
   }
 
@@ -203,7 +206,12 @@ export default function App() {
   }
 
   if (auth === 'out') {
-    return <LoginPage onSuccess={enter} />
+    if (visitante === 'login') {
+      return (
+        <LoginPage onSuccess={enter} onBack={() => setVisitante('landing')} />
+      )
+    }
+    return <LandingPage onEnter={() => setVisitante('login')} />
   }
 
   return (

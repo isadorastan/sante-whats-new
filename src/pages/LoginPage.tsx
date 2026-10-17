@@ -3,9 +3,10 @@ import { login } from '../api/auth'
 
 interface LoginPageProps {
   onSuccess: () => void
+  onBack?: () => void
 }
 
-export function LoginPage({ onSuccess }: LoginPageProps) {
+export function LoginPage({ onSuccess, onBack }: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +29,11 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={(event) => void handleSubmit(event)}>
+        {onBack ? (
+          <button type="button" className="login-back" onClick={onBack}>
+            Voltar
+          </button>
+        ) : null}
         <div className="login-card__brand">
           <span className="sidebar__mark" aria-hidden />
           <div>

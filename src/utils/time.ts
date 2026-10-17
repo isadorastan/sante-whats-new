@@ -1,9 +1,9 @@
 /** Primeiro horário da grade (05:30) e fim exclusivo (21:00). */
 const AGENDA_START_MINUTES = 5 * 60 + 30
 const AGENDA_END_MINUTES = 21 * 60
-const SLOT_MINUTES = 30
+const SLOT_MINUTES = 15
 
-/** Gera slots HH:mm das 05:30 até 21:00 (exclusivo no fim), a cada 30 minutos. */
+/** Gera slots HH:mm das 05:30 até 21:00 (exclusivo no fim), a cada 15 minutos. */
 export function generateTimeSlots(): string[] {
   const slots: string[] = []
 

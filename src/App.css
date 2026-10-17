@@ -1368,3 +1368,252 @@
     padding-top: 0;
   }
 }
+
+.landing {
+  min-height: 100vh;
+}
+
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(15, 20, 18, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+}
+
+.landing-nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.landing-nav a:hover {
+  color: var(--text);
+}
+
+.landing-hero,
+.landing-section {
+  width: min(100% - 2.5rem, 980px);
+  margin: 0 auto;
+  scroll-margin-top: 5rem;
+}
+
+.landing-hero {
+  padding: 4.5rem 0 3rem;
+}
+
+.landing-kicker {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing h1,
+.landing h2,
+.landing-footer p {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 0.95;
+}
+
+.landing h1 {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2.8rem, 7vw, 4.6rem);
+}
+
+.landing h2 {
+  margin: 0 0 1.25rem;
+  font-size: 2rem;
+}
+
+.landing h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.landing-lead {
+  max-width: 38rem;
+  margin: 1.1rem 0 0;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+}
+
+.landing-price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 1.5rem 0 1.15rem;
+}
+
+.landing-price {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.landing-price-note {
+  color: var(--text-muted);
+}
+
+.landing-cta {
+  display: inline-flex;
+  text-decoration: none;
+  padding: 0.7rem 1.15rem;
+  font-size: 0.95rem;
+}
+
+.landing-section {
+  padding: 2.5rem 0;
+}
+
+.landing-grid,
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-grid--features {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-grid li,
+.landing-steps li,
+.landing-plan,
+.landing-faq div {
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: rgba(23, 29, 26, 0.72);
+}
+
+.landing-grid p,
+.landing-steps p,
+.landing-faq dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.landing-steps {
+  counter-reset: passo;
+}
+
+.landing-steps li {
+  counter-increment: passo;
+}
+
+.landing-steps h3::before {
+  content: counter(passo) ". ";
+  color: var(--accent);
+}
+
+.landing-plan {
+  max-width: 420px;
+}
+
+.landing-included {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-included li {
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.landing-faq {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.landing-faq dt {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.landing-footer {
+  padding: 2rem 1.5rem 2.5rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.landing-footer p {
+  width: min(100% - 2.5rem, 980px);
+  margin: 0 auto;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.login-back {
+  appearance: none;
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.login-back:hover {
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  .landing-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-nav .btn {
+    width: 100%;
+  }
+
+  .landing-grid,
+  .landing-steps,
+  .landing-grid--features {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero {
+    padding-top: 2.5rem;
+  }
+}
