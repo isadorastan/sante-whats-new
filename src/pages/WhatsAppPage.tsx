@@ -460,11 +460,9 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
               {checking ? 'Verificando...' : 'Verificar conexão'}
             </button>
           ) : null}
-          {connection === 'connected' ? (
-            <button type="button" className="btn" onClick={() => void handleLogout()}>
-              Desconectar
-            </button>
-          ) : null}
+          <button type="button" className="btn" onClick={() => void handleLogout()}>
+            Desconectar
+          </button>
         </div>
       </header>
 

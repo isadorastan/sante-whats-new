@@ -108,6 +108,16 @@ beforeEach(() => {
   })
 })
 
+it('mostra Desconectar mesmo sem estar conectado', async () => {
+  vi.mocked(fetchWhatsAppStatus).mockResolvedValue({
+    status: 'qr',
+    qr: 'data:image/png;base64,abc',
+  })
+  renderPage()
+  expect(await screen.findByRole('button', { name: 'Desconectar' })).toBeInTheDocument()
+  expect(screen.getByAltText('QR Code do WhatsApp')).toBeInTheDocument()
+})
+
 it('lista só as aulas do dia, marcadas e com o texto gerado', async () => {
   await openConnectedPage()
 
