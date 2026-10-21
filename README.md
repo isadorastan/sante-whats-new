@@ -32,3 +32,28 @@ journalctl -u sante-whats -f
 ```
 
 O log tem que mostrar `WhatsApp server on` e, para cada professor já conectado, `WhatsApp conectado`. `Ctrl+C` só fecha o acompanhamento do log. O serviço continua rodando.
+
+## Ver os logs
+
+Na VPS, o serviço `sante-whats` escreve no journal do systemd.
+
+Acompanhar cada linha nova (`Ctrl+C` só para o acompanhamento):
+
+```bash
+ssh root@213.199.35.215
+journalctl -u sante-whats -f
+```
+
+Ver o que já aconteceu hoje:
+
+```bash
+journalctl -u sante-whats --since today
+```
+
+Envio de WhatsApp aparece como `envio ok user=... phone=...` ou `envio erro user=... phone=...`. Para filtrar só isso:
+
+```bash
+journalctl -u sante-whats --since today | grep envio
+```
+
+Na subida, o log precisa ter `WhatsApp server on` e, para cada professor já conectado, `WhatsApp conectado`.
