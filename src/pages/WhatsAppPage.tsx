@@ -15,6 +15,7 @@ import {
 
 const MIN_GAP_SECONDS = 4
 const MAX_GAP_SECONDS = 8
+const AFTERNOON_FROM = '13:00'
 
 type SendItemStatus = 'ready' | 'pending' | 'sending' | 'ok' | 'error' | 'cancelled'
 
@@ -32,6 +33,10 @@ interface SendItem {
 interface WhatsAppPageProps {
   students: Student[]
   sessions: Session[]
+}
+
+function isAfternoon(time: string): boolean {
+  return time >= AFTERNOON_FROM
 }
 
 function selectionLocked(item: SendItem, sending: boolean): boolean {
@@ -264,23 +269,53 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
   }
 
   const selectableItems = queue.filter((item) => !selectionLocked(item, sending))
+  const morningItems = selectableItems.filter((item) => !isAfternoon(item.time))
+  const afternoonItems = selectableItems.filter((item) => isAfternoon(item.time))
   const allSelected =
     selectableItems.length > 0 && selectableItems.every((item) => item.selected)
   const someSelected = selectableItems.some((item) => item.selected)
+  const allMorning =
+    morningItems.length > 0 && morningItems.every((item) => item.selected)
+  const someMorning = morningItems.some((item) => item.selected)
+  const allAfternoon =
+    afternoonItems.length > 0 && afternoonItems.every((item) => item.selected)
+  const someAfternoon = afternoonItems.some((item) => item.selected)
   const selectAllRef = useRef<HTMLInputElement>(null)
+  const morningRef = useRef<HTMLInputElement>(null)
+  const afternoonRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!selectAllRef.current) return
-    selectAllRef.current.indeterminate = someSelected && !allSelected
-  }, [someSelected, allSelected])
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected
+    }
+    if (morningRef.current) {
+      morningRef.current.indeterminate = someMorning && !allMorning
+    }
+    if (afternoonRef.current) {
+      afternoonRef.current.indeterminate = someAfternoon && !allAfternoon
+    }
+  }, [someSelected, allSelected, someMorning, allMorning, someAfternoon, allAfternoon])
 
-  function toggleAll() {
-    const next = !allSelected
+  function toggleMatching(match: (item: SendItem) => boolean, next: boolean) {
     setQueue((prev) =>
       prev.map((item) =>
-        selectionLocked(item, sending) ? item : { ...item, selected: next },
+        selectionLocked(item, sending) || !match(item)
+          ? item
+          : { ...item, selected: next },
       ),
     )
+  }
+
+  function toggleAll() {
+    toggleMatching(() => true, !allSelected)
+  }
+
+  function toggleMorning() {
+    toggleMatching((item) => !isAfternoon(item.time), !allMorning)
+  }
+
+  function toggleAfternoon() {
+    toggleMatching((item) => isAfternoon(item.time), !allAfternoon)
   }
 
   async function handleLogout() {
@@ -604,17 +639,41 @@ export function WhatsAppPage({ students, sessions }: WhatsAppPageProps) {
             </div>
           ) : (
             <>
-              <label className="whatsapp-progress__select-all">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  checked={allSelected}
-                  disabled={sending || selectableItems.length === 0}
-                  onChange={toggleAll}
-                  aria-label="Selecionar todas as mensagens"
-                />
-                Selecionar todas
-              </label>
+              <div className="whatsapp-progress__filters">
+                <label className="whatsapp-progress__select-all">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allSelected}
+                    disabled={sending || selectableItems.length === 0}
+                    onChange={toggleAll}
+                    aria-label="Selecionar todas as mensagens"
+                  />
+                  Selecionar todas
+                </label>
+                <label className="whatsapp-progress__select-all">
+                  <input
+                    ref={morningRef}
+                    type="checkbox"
+                    checked={allMorning}
+                    disabled={sending || morningItems.length === 0}
+                    onChange={toggleMorning}
+                    aria-label="Selecionar manhã"
+                  />
+                  Manhã
+                </label>
+                <label className="whatsapp-progress__select-all">
+                  <input
+                    ref={afternoonRef}
+                    type="checkbox"
+                    checked={allAfternoon}
+                    disabled={sending || afternoonItems.length === 0}
+                    onChange={toggleAfternoon}
+                    aria-label="Selecionar tarde"
+                  />
+                  Tarde
+                </label>
+              </div>
               <ul className="whatsapp-progress__list">
               {queue.map((item) => (
                 <li

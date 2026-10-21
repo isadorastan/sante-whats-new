@@ -160,6 +160,52 @@ it('deixa editar a mensagem e ignora telefone inválido no lote', async () => {
   expect(screen.getByText(/4–8 segundos/)).toBeInTheDocument()
 })
 
+it('seleciona manhã antes das 13h e tarde a partir das 13h', async () => {
+  const user = userEvent.setup()
+  const eva = student({ id: 5, name: 'Eva', phone: '51944444444' })
+  const felipe = student({ id: 6, name: 'Felipe', phone: '51955555555' })
+  render(
+    <WhatsAppPage
+      students={[ana, eva, felipe]}
+      sessions={[
+        session({ id: 1, studentId: ana.id, day: 'ter', time: '12:45' }),
+        session({ id: 2, studentId: eva.id, day: 'ter', time: '13:00' }),
+        session({ id: 3, studentId: felipe.id, day: 'ter', time: '18:00' }),
+      ]}
+    />,
+  )
+  await screen.findByText('WhatsApp conectado')
+
+  const morning = screen.getByRole('checkbox', { name: 'Selecionar manhã' })
+  const afternoon = screen.getByRole('checkbox', { name: 'Selecionar tarde' })
+  const selectAll = screen.getByRole('checkbox', {
+    name: 'Selecionar todas as mensagens',
+  })
+  const anaCheck = screen.getByRole('checkbox', { name: 'Incluir Ana Costa no envio' })
+  const evaCheck = screen.getByRole('checkbox', { name: 'Incluir Eva no envio' })
+  const felipeCheck = screen.getByRole('checkbox', { name: 'Incluir Felipe no envio' })
+
+  expect(morning).toBeChecked()
+  expect(afternoon).toBeChecked()
+  expect(selectAll).toBeChecked()
+
+  await user.click(morning)
+  expect(anaCheck).not.toBeChecked()
+  expect(evaCheck).toBeChecked()
+  expect(felipeCheck).toBeChecked()
+  expect(morning).not.toBeChecked()
+  expect(afternoon).toBeChecked()
+  expect(selectAll).toBePartiallyChecked()
+
+  await user.click(evaCheck)
+  expect(afternoon).toBePartiallyChecked()
+
+  await user.click(afternoon)
+  expect(evaCheck).toBeChecked()
+  expect(felipeCheck).toBeChecked()
+  expect(anaCheck).not.toBeChecked()
+})
+
 it('seleciona e desmarca todas, e fica no meio quando a escolha é parcial', async () => {
   const user = userEvent.setup()
   await openConnectedPage()
