@@ -178,7 +178,7 @@ export function CheckinApp() {
           <div className="whatsapp-banner whatsapp-banner--error">{gateError}</div>
         ) : null}
         <LoginPage
-          title="Santé Treino"
+          title="Centro de Treinamento Santé"
           tagline="Check-in da semana"
           expectedRole="student"
           wrongRoleMessage="Esta entrada é dos alunos."

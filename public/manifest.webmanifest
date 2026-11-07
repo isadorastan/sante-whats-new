@@ -1,6 +1,6 @@
 {
-  "name": "Santé Treino",
-  "short_name": "Treino",
+  "name": "Santé",
+  "short_name": "Santé",
   "start_url": "/sante-whats-new/aluno",
   "scope": "/sante-whats-new/",
   "display": "standalone",
