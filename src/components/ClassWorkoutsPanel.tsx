@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ClassActionLoading } from './ClassActionLoading'
 import { fetchClassWorkouts, saveClassWorkout } from '../api/class'
 import type { ClassModality, ClassWorkoutWeek, DayOfWeek } from '../types'
 import { DAYS } from '../types'
@@ -22,6 +23,7 @@ export function ClassWorkoutsPanel() {
   const [error, setError] = useState<string | null>(null)
   const [savedDate, setSavedDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [acting, setActing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +50,7 @@ export function ClassWorkoutsPanel() {
   }, [modality, weekStart])
 
   async function save(date: string) {
+    setActing(true)
     setError(null)
     setSavedDate(null)
     try {
@@ -64,6 +67,8 @@ export function ClassWorkoutsPanel() {
       setSavedDate(date)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar o treino')
+    } finally {
+      setActing(false)
     }
   }
 
@@ -71,6 +76,7 @@ export function ClassWorkoutsPanel() {
 
   return (
     <div className="class-panel">
+      {acting ? <ClassActionLoading /> : null}
       <p className="class-note">
         O treino é do dia, vale para todos os horários da modalidade aberta, e muda toda semana.
         Aluno só de Crossfit não vê o treino salvo em Hyrox.

@@ -1,16 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { ClassActionLoading } from './ClassActionLoading'
 import {
   createClassStudent,
   deleteClassStudent,
   fetchClassStudents,
-  fetchStudioAttendance,
   resetClassStudentPassword,
   updateClassStudent,
 } from '../api/class'
 import type { ClassStudentAccount } from '../types'
-import { brazilMonth, formatIsoDate, formatMonthLabel, shiftMonth } from '../utils/dates'
-
-const MODALITY_LABEL = { crossfit: 'Crossfit', hyrox: 'Hyrox' }
 
 export function ClassStudentsPanel() {
   const [students, setStudents] = useState<ClassStudentAccount[]>([])
@@ -22,16 +19,12 @@ export function ClassStudentsPanel() {
   const [crossfit, setCrossfit] = useState(false)
   const [hyrox, setHyrox] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [updating, setUpdating] = useState(false)
   const [removingId, setRemovingId] = useState<number | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null)
   const [passwordId, setPasswordId] = useState<number | null>(null)
   const [nextPassword, setNextPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
-  const [month, setMonth] = useState(brazilMonth)
-  const [attendance, setAttendance] = useState<Awaited<
-    ReturnType<typeof fetchStudioAttendance>
-  > | null>(null)
-  const [attendanceError, setAttendanceError] = useState<string | null>(null)
 
   async function reloadStudents() {
     const next = await fetchClassStudents()
@@ -60,27 +53,6 @@ export function ClassStudentsPanel() {
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void fetchStudioAttendance(month)
-      .then((next) => {
-        if (!cancelled) {
-          setAttendance(next)
-          setAttendanceError(null)
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setAttendanceError(
-            err instanceof Error ? err.message : 'Falha ao carregar o mês',
-          )
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [month])
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -118,8 +90,6 @@ export function ClassStudentsPanel() {
       await deleteClassStudent(id)
       setConfirmRemoveId(null)
       await reloadStudents()
-      const next = await fetchStudioAttendance(month)
-      setAttendance(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao remover o aluno')
     } finally {
@@ -135,12 +105,15 @@ export function ClassStudentsPanel() {
       setError('Marque Crossfit, Hyrox ou os dois.')
       return
     }
+    setUpdating(true)
     setError(null)
     try {
       await updateClassStudent(student.id, next)
       await reloadStudents()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar o aluno')
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -162,8 +135,11 @@ export function ClassStudentsPanel() {
     }
   }
 
+  const acting = saving || updating || removingId !== null
+
   return (
     <div className="class-panel">
+      {acting ? <ClassActionLoading /> : null}
       <form className="students-form" onSubmit={(event) => void handleCreate(event)}>
         <p className="students-form__label">Adicionar aluno</p>
         {error ? <div className="whatsapp-banner whatsapp-banner--error">{error}</div> : null}
@@ -321,68 +297,6 @@ export function ClassStudentsPanel() {
           </li>
         ))}
       </ul>
-
-      <section className="class-month" aria-labelledby="class-month-title">
-        <div className="stats-month-head">
-          <h2 id="class-month-title" className="stats-section__title">
-            Comparecimento
-          </h2>
-          <div className="month-switch" role="group" aria-label="Mês">
-            <button
-              type="button"
-              className="btn"
-              aria-label="Mês anterior"
-              onClick={() => setMonth((current) => shiftMonth(current, -1))}
-            >
-              Anterior
-            </button>
-            <span className="month-switch__label">{formatMonthLabel(month)}</span>
-            <button
-              type="button"
-              className="btn"
-              aria-label="Mês seguinte"
-              onClick={() => setMonth((current) => shiftMonth(current, 1))}
-            >
-              Próximo
-            </button>
-          </div>
-        </div>
-        {attendanceError ? (
-          <div className="whatsapp-banner whatsapp-banner--error">{attendanceError}</div>
-        ) : null}
-        {!attendance && !attendanceError ? (
-          <p className="page-status">Carregando mês...</p>
-        ) : null}
-        {attendance && attendance.rows.length === 0 ? (
-          <p className="class-empty">Ninguém fez check-in neste mês.</p>
-        ) : null}
-        <ul className="class-attendance">
-          {(attendance?.rows ?? [])
-            .filter((row) => row.sessions.length > 0 || row.studentId !== null)
-            .map((row) => (
-              <li key={row.key}>
-                <div className="class-attendance__head">
-                  <strong>{row.name}</strong>
-                  <span>
-                    Crossfit {row.crossfit} · Hyrox {row.hyrox}
-                  </span>
-                </div>
-                {row.sessions.length > 0 ? (
-                  <ul className="class-attendance__sessions">
-                    {row.sessions.map((session, index) => (
-                      <li key={`${session.date}-${session.time}-${session.modality}-${index}`}>
-                        {formatIsoDate(session.date)} · {session.time} ·{' '}
-                        {MODALITY_LABEL[session.modality]}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="class-empty">Sem check-in neste mês.</p>
-                )}
-              </li>
-            ))}
-        </ul>
-      </section>
     </div>
   )
 }
