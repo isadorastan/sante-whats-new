@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEvent } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import type { Session, Student } from '../types'
+import { paintColor, type Session, type Student } from '../types'
 
 interface StudentCardProps {
   session: Session
@@ -25,8 +25,8 @@ export function StudentCard({
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging && !isDraggingOverlay ? 0.35 : 1,
-    borderLeftColor: student.color,
-    ['--card-accent' as string]: student.color,
+    borderLeftColor: paintColor(student.color),
+    ['--card-accent' as string]: paintColor(student.color),
   }
 
   function handleRemove(event: MouseEvent) {

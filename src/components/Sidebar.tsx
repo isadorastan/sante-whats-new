@@ -9,6 +9,7 @@ interface SidebarProps {
 
 const NAV_ITEMS: { id: AppPage; label: string; hint: string }[] = [
   { id: 'agenda', label: 'Agenda', hint: 'Grade semanal' },
+  { id: 'turmas', label: 'Crossfit/Hyrox', hint: 'Turmas' },
   { id: 'alunos', label: 'Alunos', hint: 'Cadastro' },
   { id: 'estatisticas', label: 'Estatísticas', hint: 'O negócio' },
   { id: 'whatsapp', label: 'WhatsApp', hint: 'Avisos do dia' },

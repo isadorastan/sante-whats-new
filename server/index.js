@@ -1,9 +1,10 @@
 import './loadEnv.js'
 import cors from 'cors'
 import express from 'express'
-import { login, me, requireAuth } from './auth.js'
+import { login, me, requireAuth, requireProfessor } from './auth.js'
 import { supabase } from './db.js'
 import { runDailySummaries } from './dailySummary.js'
+import { classRouter } from './routes/class.js'
 import { dataRouter } from './routes/data.js'
 import { professorRouter } from './routes/professor.js'
 import { isValidWhatsAppPhone } from './phone.js'
@@ -31,6 +32,8 @@ app.use(express.json())
 app.post('/api/auth/login', login)
 app.use('/api', requireAuth)
 app.get('/api/auth/me', me)
+app.use('/api/class', classRouter)
+app.use('/api', requireProfessor)
 app.use('/api', dataRouter)
 app.use('/api', professorRouter)
 
