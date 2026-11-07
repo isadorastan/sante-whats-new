@@ -39,7 +39,9 @@ export function ClassWeek({
 }: ClassWeekProps) {
   const visible = MODALITIES.filter((item) => week.modalities[item.id])
   const current = visible.some((item) => item.id === modality) ? modality : visible[0]?.id
-  const days = current ? (week.modalities[current]?.days ?? []) : []
+  const days = (current ? (week.modalities[current]?.days ?? []) : []).filter(
+    (day) => day.slots.length > 0,
+  )
   const weekEnd = addIsoDays(week.weekStart, 6)
   const currentWeek = weekStartMonday(week.today)
   const nextWeek = addIsoDays(currentWeek, 7)
@@ -125,10 +127,7 @@ export function ClassWeek({
                 <p className="class-workout">
                   {day.workout.trim() ? day.workout : 'Treino ainda não saiu.'}
                 </p>
-                {day.slots.length === 0 ? (
-                  <p className="class-empty">Nenhum horário neste dia.</p>
-                ) : (
-                  <ul className="class-slots">
+                <ul className="class-slots">
                     {day.slots.map((slot) => {
                       const actionId = `${day.date}-${slot.id}`
                       const myCheckinId = slot.myCheckinId
@@ -184,7 +183,6 @@ export function ClassWeek({
                       )
                     })}
                   </ul>
-                )}
               </article>
             )
           })}

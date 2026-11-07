@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { ClassActionLoading } from './ClassActionLoading'
 import {
   NeedsConfirmError,
   createClassSlot,
@@ -20,6 +21,7 @@ export function ClassSchedulePanel() {
   const [schedule, setSchedule] = useState<ClassSchedule | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [acting, setActing] = useState(false)
   const [pendingDays, setPendingDays] = useState<DayOfWeek[] | null>(null)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [pendingSlotId, setPendingSlotId] = useState<number | null>(null)
@@ -67,6 +69,7 @@ export function ClassSchedulePanel() {
   }, [modality])
 
   async function persistDays(days: DayOfWeek[], confirm = false) {
+    setActing(true)
     setError(null)
     try {
       await saveClassDays({ modality, days, confirm })
@@ -80,6 +83,8 @@ export function ClassSchedulePanel() {
         return
       }
       setError(err instanceof Error ? err.message : 'Falha ao salvar os dias')
+    } finally {
+      setActing(false)
     }
   }
 
@@ -93,6 +98,7 @@ export function ClassSchedulePanel() {
 
   async function addSlot(event: FormEvent) {
     event.preventDefault()
+    setActing(true)
     setError(null)
     try {
       await createClassSlot({
@@ -105,22 +111,28 @@ export function ClassSchedulePanel() {
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao criar o horário')
+    } finally {
+      setActing(false)
     }
   }
 
   async function saveSlot(id: number) {
     const edit = edits[id]
     if (!edit) return
+    setActing(true)
     setError(null)
     try {
       await updateClassSlot(id, { time: edit.time, capacity: Number(edit.capacity) })
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar o horário')
+    } finally {
+      setActing(false)
     }
   }
 
   async function removeSlot(id: number, confirm = false) {
+    setActing(true)
     setError(null)
     try {
       await deleteClassSlot(id, confirm)
@@ -135,11 +147,14 @@ export function ClassSchedulePanel() {
         return
       }
       setError(err instanceof Error ? err.message : 'Falha ao apagar o horário')
+    } finally {
+      setActing(false)
     }
   }
 
   return (
     <div className="class-panel">
+      {acting ? <ClassActionLoading /> : null}
       <p className="class-note">
         Os dias e horários valem para todas as semanas. O treino muda na gestão de treinos.
       </p>
@@ -247,7 +262,9 @@ export function ClassSchedulePanel() {
           )
         })}
       </div>
-      {(schedule?.days ?? []).map((day) => {
+      {(schedule?.days ?? [])
+        .filter((day) => (schedule?.slots ?? []).some((slot) => slot.day === day))
+        .map((day) => {
         const label = DAYS.find((item) => item.id === day)?.label ?? day
         const slots = schedule?.slots.filter((slot) => slot.day === day) ?? []
         return (
@@ -255,7 +272,6 @@ export function ClassSchedulePanel() {
             <header className="class-day__head">
               <h2>{label}</h2>
             </header>
-            {slots.length === 0 ? <p className="class-empty">Nenhum horário.</p> : null}
             <ul className="class-slots">
               {slots.map((slot) => {
                 const edit = edits[slot.id] ?? { time: slot.time, capacity: String(slot.capacity) }

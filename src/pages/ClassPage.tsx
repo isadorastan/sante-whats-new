@@ -1,14 +1,16 @@
 import { useState } from 'react'
+import { ClassCheckinsPanel } from '../components/ClassCheckinsPanel'
 import { ClassSchedulePanel } from '../components/ClassSchedulePanel'
 import { ClassStudentsPanel } from '../components/ClassStudentsPanel'
 import { ClassWorkoutsPanel } from '../components/ClassWorkoutsPanel'
 
-type Section = 'alunos' | 'horarios' | 'treinos'
+type Section = 'alunos' | 'horarios' | 'treinos' | 'checkin'
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'alunos', label: 'Gestão de alunos' },
   { id: 'horarios', label: 'Gestão de horários' },
   { id: 'treinos', label: 'Gestão de treinos' },
+  { id: 'checkin', label: 'Check-in semanal' },
 ]
 
 export function ClassPage() {
@@ -42,6 +44,7 @@ export function ClassPage() {
         {section === 'alunos' ? <ClassStudentsPanel /> : null}
         {section === 'horarios' ? <ClassSchedulePanel /> : null}
         {section === 'treinos' ? <ClassWorkoutsPanel /> : null}
+        {section === 'checkin' ? <ClassCheckinsPanel /> : null}
       </div>
     </div>
   )

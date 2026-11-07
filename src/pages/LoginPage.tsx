@@ -26,6 +26,7 @@ export function LoginPage({
 }: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -83,15 +84,26 @@ export function LoginPage({
 
         <label className="students-field">
           <span>Senha</span>
-          <input
-            className="students-form__input"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+          <div className="password-field">
+            <input
+              className="students-form__input"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="password-field__toggle"
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((current) => !current)}
+            >
+              <EyeIcon off={showPassword} />
+            </button>
+          </div>
         </label>
 
         <button className="btn btn--primary" type="submit" disabled={busy}>
@@ -108,5 +120,31 @@ export function LoginPage({
         ) : null}
       </form>
     </div>
+  )
+}
+
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      {off ? (
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4.2 4.2M9.9 5.2A10.4 10.4 0 0 1 12 5c5.2 0 9.2 4.2 10.2 6.5a12 12 0 0 1-2.2 3.2M6.2 6.3C4.4 7.6 3 9.4 1.8 12c1 2.4 4.8 6.5 10.2 6.5 1.4 0 2.8-.3 4-.8"
+        />
+      ) : (
+        <>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"
+          />
+          <circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        </>
+      )}
+    </svg>
   )
 }

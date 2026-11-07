@@ -652,7 +652,7 @@ professor.delete(
     }
     const slot = await db
       .from('class_slots')
-      .select('id')
+      .select('id, modality, day')
       .eq('id', slotId)
       .eq('user_id', userId)
       .maybeSingle()
@@ -688,6 +688,30 @@ professor.delete(
       console.error(deleted.error)
       res.status(500).json({ error: 'Falha ao apagar o horário' })
       return
+    }
+    const remaining = await db
+      .from('class_slots')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('modality', slot.data.modality)
+      .eq('day', slot.data.day)
+    if (remaining.error) {
+      console.error(remaining.error)
+      res.status(500).json({ error: 'Falha ao apagar o horário' })
+      return
+    }
+    if ((remaining.data ?? []).length === 0) {
+      const dayOff = await db
+        .from('class_days')
+        .delete()
+        .eq('user_id', userId)
+        .eq('modality', slot.data.modality)
+        .eq('day', slot.data.day)
+      if (dayOff.error) {
+        console.error(dayOff.error)
+        res.status(500).json({ error: 'Falha ao apagar o horário' })
+        return
+      }
     }
     res.status(204).end()
   }),
@@ -763,6 +787,31 @@ professor.put(
       date: String(saved.data.workout_on).slice(0, 10),
       body: saved.data.body ?? '',
     })
+  }),
+)
+
+professor.get(
+  '/week',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const userId = professorIdOf(req, res)
+    if (!db || !userId) return
+    const from = req.query.from ? parseIsoDate(req.query.from) : brazilToday()
+    if (!from) {
+      res.status(400).json({ error: 'Semana inválida' })
+      return
+    }
+    const week = await buildWeek(db, userId, from, {
+      id: 0,
+      crossfit: true,
+      hyrox: true,
+    })
+    if (week.error) {
+      console.error(week.error)
+      res.status(500).json({ error: 'Falha ao carregar a semana' })
+      return
+    }
+    res.json(week.body)
   }),
 )
 
