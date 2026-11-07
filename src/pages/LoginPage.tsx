@@ -1,12 +1,29 @@
 import { useState, type FormEvent } from 'react'
-import { login } from '../api/auth'
+import { login, type AccountRole } from '../api/auth'
+import { clearToken } from '../api/http'
+import { alunoHref } from '../utils/paths'
 
 interface LoginPageProps {
   onSuccess: () => void
   onBack?: () => void
+  expectedRole?: AccountRole
+  title?: string
+  tagline?: string
+  wrongRoleMessage?: string
+  alternateHref?: string
+  alternateLabel?: string
 }
 
-export function LoginPage({ onSuccess, onBack }: LoginPageProps) {
+export function LoginPage({
+  onSuccess,
+  onBack,
+  expectedRole = 'professor',
+  title = 'Agenda Personal',
+  tagline = 'Entre para continuar',
+  wrongRoleMessage = 'Esta entrada é do professor.',
+  alternateHref,
+  alternateLabel,
+}: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +34,12 @@ export function LoginPage({ onSuccess, onBack }: LoginPageProps) {
     setBusy(true)
     setError(null)
     try {
-      await login(username.trim(), password)
+      const role = await login(username.trim(), password)
+      if (role !== expectedRole) {
+        clearToken()
+        setError(wrongRoleMessage)
+        return
+      }
       onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao entrar')
@@ -37,8 +59,8 @@ export function LoginPage({ onSuccess, onBack }: LoginPageProps) {
         <div className="login-card__brand">
           <span className="sidebar__mark" aria-hidden />
           <div>
-            <p className="sidebar__title">Agenda Personal</p>
-            <p className="sidebar__tagline">Entre para continuar</p>
+            <p className="sidebar__title">{title}</p>
+            <p className="sidebar__tagline">{tagline}</p>
           </div>
         </div>
 
@@ -75,6 +97,15 @@ export function LoginPage({ onSuccess, onBack }: LoginPageProps) {
         <button className="btn btn--primary" type="submit" disabled={busy}>
           {busy ? 'Entrando...' : 'Entrar'}
         </button>
+        {(alternateHref ?? (expectedRole === 'professor' ? alunoHref() : undefined)) &&
+        (alternateLabel ?? (expectedRole === 'professor' ? 'Sou aluno' : undefined)) ? (
+          <a
+            className="login-alt"
+            href={alternateHref ?? alunoHref()}
+          >
+            {alternateLabel ?? 'Sou aluno'}
+          </a>
+        ) : null}
       </form>
     </div>
   )

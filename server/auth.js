@@ -1,5 +1,6 @@
 import './loadEnv.js'
 import { createClient } from '@supabase/supabase-js'
+import { supabase } from './db.js'
 
 const url = process.env.SUPABASE_URL
 const key =
@@ -17,6 +18,27 @@ function bearerToken(req) {
   return header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : ''
 }
 
+/** Conta sem papel continua professor. Aluno só entra com role student no app_metadata. */
+export function roleFromUser(user) {
+  return user?.app_metadata?.role === 'student' ? 'student' : 'professor'
+}
+
+export function requireProfessor(req, res, next) {
+  if (req.user?.role === 'student') {
+    res.status(403).json({ error: 'Acesso só do professor' })
+    return
+  }
+  next()
+}
+
+export function requireStudent(req, res, next) {
+  if (req.user?.role !== 'student') {
+    res.status(403).json({ error: 'Acesso só do aluno' })
+    return
+  }
+  next()
+}
+
 export async function requireAuth(req, res, next) {
   const token = bearerToken(req)
   if (!token || !auth) {
@@ -30,9 +52,13 @@ export async function requireAuth(req, res, next) {
     return
   }
 
+  const role = roleFromUser(data.user)
   req.user = {
     id: data.user.id,
     username: data.user.email ?? data.user.id,
+    role,
+    professorId:
+      role === 'student' ? data.user.app_metadata?.professor_id ?? null : data.user.id,
   }
   next()
 }
@@ -70,13 +96,51 @@ export async function login(req, res) {
       return
     }
 
-    res.json({ token: data.session.access_token })
+    res.json({
+      token: data.session.access_token,
+      role: roleFromUser(data.user),
+    })
   } catch (err) {
     console.error('POST /api/auth/login', err)
     res.status(500).json({ error: 'Falha ao entrar' })
   }
 }
 
-export function me(req, res) {
-  res.json({ ok: true, username: req.user.username })
+export async function me(req, res) {
+  const body = {
+    ok: true,
+    username: req.user.username,
+    role: req.user.role ?? 'professor',
+    name: null,
+    crossfit: false,
+    hyrox: false,
+  }
+  if (body.role !== 'student') {
+    res.json(body)
+    return
+  }
+
+  try {
+    if (!supabase) {
+      res.json(body)
+      return
+    }
+    const { data, error } = await supabase
+      .from('class_students')
+      .select('name, crossfit, hyrox')
+      .eq('auth_user_id', req.user.id)
+      .maybeSingle()
+    if (error) {
+      console.error('GET /api/auth/me', error)
+      res.status(500).json({ error: 'Falha ao validar sessão' })
+      return
+    }
+    body.name = data?.name ?? null
+    body.crossfit = Boolean(data?.crossfit)
+    body.hyrox = Boolean(data?.hyrox)
+    res.json(body)
+  } catch (err) {
+    console.error('GET /api/auth/me', err)
+    res.status(500).json({ error: 'Falha ao validar sessão' })
+  }
 }

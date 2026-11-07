@@ -18,3 +18,16 @@ export function brazilToday(now = new Date()) {
 export function brazilMonth(now = new Date()) {
   return brazilToday(now).slice(0, 7)
 }
+
+/** Horário civil em America/Sao_Paulo, no formato HH:mm. */
+export function brazilNowTime(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  let hour = part(parts, 'hour')
+  if (hour === '24') hour = '00'
+  return `${hour}:${part(parts, 'minute')}`
+}

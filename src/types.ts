@@ -7,7 +7,111 @@ export type DayOfWeek =
   | 'sab'
   | 'dom'
 
-export type AppPage = 'agenda' | 'alunos' | 'estatisticas' | 'whatsapp' | 'configuracoes'
+export type AppPage =
+  | 'agenda'
+  | 'turmas'
+  | 'alunos'
+  | 'estatisticas'
+  | 'whatsapp'
+  | 'configuracoes'
+
+export type ClassModality = 'crossfit' | 'hyrox'
+
+export interface ClassStudentAccount {
+  id: number
+  name: string
+  email: string
+  crossfit: boolean
+  hyrox: boolean
+}
+
+export interface ClassSlot {
+  id: number
+  modality: ClassModality
+  day: DayOfWeek
+  time: string
+  capacity: number
+}
+
+export interface ClassSchedule {
+  modality: ClassModality
+  days: DayOfWeek[]
+  slots: ClassSlot[]
+}
+
+export interface ClassCheckinPerson {
+  id: number
+  studentName: string
+  mine: boolean
+}
+
+export interface ClassWeekSlot {
+  id: number
+  time: string
+  capacity: number
+  checkins: ClassCheckinPerson[]
+  canJoin: boolean
+  canLeave: boolean
+  myCheckinId: number | null
+  closedReason?: 'past' | 'started' | 'too_far' | null
+}
+
+export interface ClassWeekDay {
+  date: string
+  day: DayOfWeek
+  workout: string
+  slots: ClassWeekSlot[]
+}
+
+export interface ClassWeek {
+  weekStart: string
+  today: string
+  nowTime: string
+  modalities: Partial<Record<ClassModality, { days: ClassWeekDay[] }>>
+}
+
+export interface ClassWorkoutDay {
+  day: DayOfWeek
+  date: string
+  body: string
+}
+
+export interface ClassWorkoutWeek {
+  modality: ClassModality
+  weekStart: string
+  days: ClassWorkoutDay[]
+}
+
+export interface ClassAttendanceSession {
+  date: string
+  time: string
+  modality: ClassModality
+  studentName: string
+}
+
+export interface ClassAttendanceRow {
+  key: string
+  studentId: number | null
+  name: string
+  crossfit: number
+  hyrox: number
+  sessions: ClassAttendanceSession[]
+}
+
+export interface StudioAttendance {
+  month: string
+  scope: 'studio'
+  rows: ClassAttendanceRow[]
+}
+
+export interface MineAttendance {
+  month: string
+  scope: 'mine'
+  name: string
+  crossfit: number
+  hyrox: number
+  sessions: ClassAttendanceSession[]
+}
 
 export type StudentStatus = 'ativo' | 'pausado' | 'encerrado'
 
@@ -68,15 +172,26 @@ export const DAYS: { id: DayOfWeek; label: string; short: string }[] = [
 ]
 
 export const STUDENT_COLORS = [
-  '#2dd4a8',
+  '#ff5a1f',
   '#5b8def',
   '#f5a524',
   '#ef5b7a',
   '#a78bfa',
-  '#34d399',
+  '#ff8a3d',
   '#fb923c',
   '#38bdf8',
 ]
+
+const LEGACY_GREENS: Record<string, string> = {
+  '#2dd4a8': '#ff5a1f',
+  '#34d399': '#ff8a3d',
+  '#1aa87a': '#c2410c',
+  '#3dffa8': '#ff5a1f',
+}
+
+export function paintColor(color: string): string {
+  return LEGACY_GREENS[color.toLowerCase()] ?? color
+}
 
 export function colorForName(name: string): string {
   let hash = 0

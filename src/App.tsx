@@ -3,6 +3,14 @@ import type { AppPage, Session, Student } from './types'
 import { fetchMe } from './api/auth'
 import { clearToken, getToken, setUnauthorizedHandler } from './api/http'
 import {
+  adminHref,
+  alunoHref,
+  isAdminPath,
+  isAlunoPath,
+  isLegacyCheckinPath,
+  isVendasPath,
+} from './utils/paths'
+import {
   createSession,
   createStudent,
   deleteSession,
@@ -18,15 +26,18 @@ import {
 } from './api/data'
 import { Sidebar } from './components/Sidebar'
 import { AgendaPage } from './pages/AgendaPage'
+import { GymHome } from './pages/GymHome'
 import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StudentsPage } from './pages/StudentsPage'
 import { StatsPage } from './pages/StatsPage'
 import { WhatsAppPage } from './pages/WhatsAppPage'
+import { CheckinApp } from './pages/CheckinApp'
+import { ClassPage } from './pages/ClassPage'
 import './App.css'
 
-type AuthState = 'checking' | 'in' | 'out' | 'error'
+type AuthState = 'checking' | 'in' | 'out' | 'error' | 'student'
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>(() =>
@@ -34,7 +45,6 @@ export default function App() {
   )
   const [authError, setAuthError] = useState<string | null>(null)
   const [page, setPage] = useState<AppPage>('agenda')
-  const [visitante, setVisitante] = useState<'landing' | 'login'>('landing')
   const [students, setStudents] = useState<Student[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,7 +83,11 @@ export default function App() {
     setAuth('checking')
     setAuthError(null)
     try {
-      await fetchMe()
+      const me = await fetchMe()
+      if (me.role === 'student') {
+        setAuth('student')
+        return
+      }
       enter()
     } catch (err) {
       if (!getToken()) {
@@ -88,6 +102,7 @@ export default function App() {
   }, [enter])
 
   useEffect(() => {
+    if (!isAdminPath()) return
     setUnauthorizedHandler(() => {
       setAuth('out')
       setAuthError(null)
@@ -96,10 +111,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (!isAdminPath()) return
     void checkSession()
   }, [checkSession])
 
   useEffect(() => {
+    if (!isAdminPath()) return
     if (auth !== 'in') return
     void reload()
   }, [auth, reload])
@@ -110,7 +127,6 @@ export default function App() {
     setSessions([])
     setError(null)
     setPage('agenda')
-    setVisitante('landing')
     setAuth('out')
   }
 
@@ -182,6 +198,39 @@ export default function App() {
     setSessions((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
+  if (isLegacyCheckinPath()) {
+    window.location.replace(alunoHref())
+    return null
+  }
+
+  if (isAlunoPath()) {
+    return <CheckinApp />
+  }
+
+  if (isVendasPath()) {
+    return <LandingPage onEnter={() => window.location.assign(adminHref())} />
+  }
+
+  if (!isAdminPath()) {
+    return <GymHome />
+  }
+
+  if (auth === 'student') {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <p>Esta entrada é do professor.</p>
+          <a className="btn btn--primary" href={alunoHref()}>
+            Ir para o aluno
+          </a>
+          <button type="button" className="btn" onClick={handleLogout}>
+            Sair
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (auth === 'checking') {
     return (
       <div className="login-screen">
@@ -206,12 +255,13 @@ export default function App() {
   }
 
   if (auth === 'out') {
-    if (visitante === 'login') {
-      return (
-        <LoginPage onSuccess={enter} onBack={() => setVisitante('landing')} />
-      )
-    }
-    return <LandingPage onEnter={() => setVisitante('login')} />
+    return (
+      <LoginPage
+        onSuccess={enter}
+        alternateHref={alunoHref()}
+        alternateLabel="Sou aluno"
+      />
+    )
   }
 
   return (
@@ -237,6 +287,8 @@ export default function App() {
             </button>
           </div>
         ) : null}
+
+        {!loading && !error && page === 'turmas' ? <ClassPage /> : null}
 
         {!loading && !error && page === 'agenda' ? (
           <AgendaPage

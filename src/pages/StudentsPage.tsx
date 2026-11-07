@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import type { Session, Student, StudentStatus } from '../types'
-import { colorForName } from '../types'
+import { colorForName, paintColor } from '../types'
 import type { StudentInput, StudentUpdate } from '../api/data'
 import { brazilToday, formatIsoDate } from '../utils/dates'
 import {
@@ -435,7 +435,7 @@ export function StudentsPage({
                 <li key={student.id} className="students-list__item">
                   <span
                     className="students-list__swatch"
-                    style={{ background: student.color }}
+                    style={{ background: paintColor(student.color) }}
                     aria-hidden
                   />
 
