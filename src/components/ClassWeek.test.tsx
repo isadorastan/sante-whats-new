@@ -122,6 +122,40 @@ it('mostra os chips do resumo e o treino completo no olho', async () => {
   expect(screen.getByText('Corrida 5 km')).toBeInTheDocument()
 })
 
+it('mostra o treino do dia mesmo sem horário de aula', () => {
+  render(
+    <ClassWeek
+      week={{
+        ...week,
+        modalities: {
+          crossfit: {
+            days: [
+              {
+                date: '2026-11-10',
+                day: 'ter',
+                workout: 'Resumo: Clean · Corda\n\nForça',
+                slots: [],
+              },
+            ],
+          },
+        },
+      }}
+      modality="crossfit"
+      onModality={() => {}}
+      onShiftWeek={() => {}}
+      onCheckIn={() => Promise.resolve()}
+      onCancel={() => Promise.resolve()}
+      busyId={null}
+    />,
+  )
+
+  expect(screen.getByRole('heading', { name: 'Terça' })).toBeInTheDocument()
+  expect(screen.getByText('Clean')).toBeInTheDocument()
+  expect(screen.getByText('Corda')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Ver treino completo' })).toBeInTheDocument()
+  expect(screen.getByText('Nenhum horário neste dia.')).toBeInTheDocument()
+})
+
 it('entra na aula quando o horário tem vaga', async () => {
   const user = userEvent.setup()
   const onCheckIn = vi.fn()
