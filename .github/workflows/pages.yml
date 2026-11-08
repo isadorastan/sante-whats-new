@@ -26,9 +26,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix server
+
+      - name: Test
+        run: npm test
 
       - name: Build
         env:
