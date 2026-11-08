@@ -46,11 +46,12 @@ export async function fetchClassStudents(): Promise<ClassStudentAccount[]> {
 
 export async function createClassStudent(input: {
   name: string
-  email: string
+  phone: string
+  username: string
   password: string
   crossfit: boolean
   hyrox: boolean
-}): Promise<ClassStudentAccount> {
+}): Promise<ClassStudentAccount & { whatsappSent: boolean; whatsappError: string | null }> {
   const res = await apiFetch('/api/class/students', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -61,7 +62,7 @@ export async function createClassStudent(input: {
 
 export async function updateClassStudent(
   id: number,
-  input: { crossfit: boolean; hyrox: boolean },
+  input: { crossfit?: boolean; hyrox?: boolean; name?: string; phone?: string },
 ): Promise<ClassStudentAccount> {
   const res = await apiFetch(`/api/class/students/${id}`, {
     method: 'PATCH',
@@ -71,16 +72,13 @@ export async function updateClassStudent(
   return parseClass(res)
 }
 
-export async function resetClassStudentPassword(
-  id: number,
-  password: string,
-): Promise<void> {
-  const res = await apiFetch(`/api/class/students/${id}/password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  })
-  await parseClass(res)
+export async function resendClassStudent(id: number): Promise<{
+  whatsappSent: boolean
+  whatsappError: string | null
+  password: string | null
+}> {
+  const res = await apiFetch(`/api/class/students/${id}/resend`, { method: 'POST' })
+  return parseClass(res)
 }
 
 export async function deleteClassStudent(id: number): Promise<void> {

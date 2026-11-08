@@ -1,6 +1,7 @@
 import './loadEnv.js'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from './db.js'
+import { resolveLoginEmail } from './studentAccount.js'
 
 const url = process.env.SUPABASE_URL
 const key =
@@ -64,10 +65,15 @@ export async function requireAuth(req, res, next) {
 }
 
 export async function login(req, res) {
-  const email = String(req.body?.email ?? req.body?.username ?? '').trim()
+  const identifier = String(req.body?.email ?? req.body?.username ?? '').trim()
   const password = String(req.body?.password ?? '')
-  if (!email || !password) {
-    res.status(400).json({ error: 'E-mail e senha são obrigatórios' })
+  const email = resolveLoginEmail(identifier)
+  if (!identifier || !password) {
+    res.status(400).json({ error: 'Usuário e senha são obrigatórios' })
+    return
+  }
+  if (!email) {
+    res.status(401).json({ error: 'Usuário ou senha inválidos' })
     return
   }
   if (!auth) {

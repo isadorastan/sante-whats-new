@@ -167,6 +167,16 @@ alter table public.class_students
 
 create unique index if not exists class_students_email_lower_idx
   on public.class_students (lower(email));
+
+alter table public.class_students
+  add column if not exists username text;
+alter table public.class_students
+  add column if not exists phone text;
+
+create unique index if not exists class_students_username_lower_idx
+  on public.class_students (lower(username));
+
+notify pgrst, 'reload schema';
 create index if not exists class_students_user_id_idx
   on public.class_students (user_id);
 

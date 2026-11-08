@@ -1762,7 +1762,7 @@
 
 .class-form-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.3fr 0.8fr;
+  grid-template-columns: 1.15fr 1fr 0.9fr 0.9fr;
   gap: 0.75rem;
 }
 
@@ -1822,6 +1822,14 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.class-roster__item .class-inline-form {
+  flex: 1 0 100%;
+}
+
+.class-roster__item .class-inline-form .students-field {
+  flex: 1 1 160px;
 }
 
 .class-roster__item p,

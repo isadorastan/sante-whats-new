@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { login, type AccountRole } from '../api/auth'
 import { clearToken } from '../api/http'
 import { alunoHref } from '../utils/paths'
@@ -24,9 +24,25 @@ export function LoginPage({
   alternateHref,
   alternateLabel,
 }: LoginPageProps) {
+  const identifierLabel = expectedRole === 'student' ? 'Usuário' : 'E-mail'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (expectedRole !== 'student') return
+    const params = new URLSearchParams(window.location.search)
+    const email = params.get('email') ?? params.get('usuario') ?? ''
+    const senha = params.get('senha') ?? ''
+    if (email) setUsername(email)
+    if (senha) setPassword(senha)
+    if (!email && !senha) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('email')
+    url.searchParams.delete('usuario')
+    url.searchParams.delete('senha')
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [expectedRole])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -70,12 +86,13 @@ export function LoginPage({
         ) : null}
 
         <label className="students-field">
-          <span>E-mail</span>
+          <span>{identifierLabel}</span>
           <input
             className="students-form__input"
             name="email"
-            type="email"
+            type={expectedRole === 'student' ? 'text' : 'email'}
             autoComplete="username"
+            autoCapitalize="none"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             required

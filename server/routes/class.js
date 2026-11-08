@@ -18,6 +18,16 @@ import {
 } from '../classRules.js'
 import { draftWorkout } from '../workoutAssist.js'
 import { weekdayId } from '../dailySummary.js'
+import {
+  formatBrazilPhone,
+  normalizePhone,
+  normalizeUsername,
+  studentAccessUrl,
+  newStudentPassword,
+  studentLoginEmail,
+  welcomeMessage,
+} from '../studentAccount.js'
+import { sendWhatsAppText } from '../whatsappSessions.js'
 import { brazilMonth, brazilNowTime, brazilToday } from '../dates.js'
 import { requireDb } from '../db.js'
 
@@ -68,12 +78,37 @@ function isUnique(error) {
 }
 
 function mapStudent(row) {
+  const legacyEmail =
+    row.username || !row.email || String(row.email).endsWith('@alunos.sante.invalid')
+      ? ''
+      : row.email
   return {
     id: Number(row.id),
     name: row.name,
-    email: row.email,
+    username: row.username || legacyEmail,
+    phone: row.phone ? formatBrazilPhone(row.phone) : '',
     crossfit: Boolean(row.crossfit),
     hyrox: Boolean(row.hyrox),
+  }
+}
+
+async function deliverWelcome(userId, { name, username, phone, password }) {
+  try {
+    await sendWhatsAppText(
+      userId,
+      phone,
+      welcomeMessage({
+        name,
+        username,
+        password,
+        url: studentAccessUrl(),
+      }),
+    )
+    return { whatsappSent: true, whatsappError: null }
+  } catch (err) {
+    const whatsappError = err instanceof Error ? err.message : 'Falha ao enviar mensagem'
+    console.error('boas-vindas do aluno', whatsappError)
+    return { whatsappSent: false, whatsappError }
   }
 }
 
@@ -203,7 +238,7 @@ professor.get(
     if (!db || !userId) return
     const { data, error } = await db
       .from('class_students')
-      .select('id, name, email, crossfit, hyrox')
+      .select('id, name, username, phone, email, crossfit, hyrox')
       .eq('user_id', userId)
       .order('name')
     if (error) {
@@ -222,7 +257,8 @@ professor.post(
     if (!db || !userId) return
 
     const name = String(req.body?.name ?? '').trim()
-    const email = String(req.body?.email ?? '').trim().toLowerCase()
+    const username = normalizeUsername(req.body?.username)
+    const phone = normalizePhone(req.body?.phone)
     const password = String(req.body?.password ?? '')
     const modalities = parseModalities(req.body)
     if (!name || name.length > 80) {
@@ -233,8 +269,14 @@ professor.post(
       res.status(400).json({ error: 'Marque Crossfit, Hyrox ou os dois' })
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
-      res.status(400).json({ error: 'E-mail inválido' })
+    if (!username) {
+      res.status(400).json({
+        error: 'Usuário inválido. Use de 3 a 30 caracteres: letras, números, ponto, _ ou -.',
+      })
+      return
+    }
+    if (!phone) {
+      res.status(400).json({ error: 'Celular inválido' })
       return
     }
     if (password.length < 6) {
@@ -242,6 +284,7 @@ professor.post(
       return
     }
 
+    const email = studentLoginEmail(username)
     const created = await db.auth.admin.createUser({
       email,
       password,
@@ -251,7 +294,7 @@ professor.post(
     if (created.error || !created.data.user) {
       const message = created.error?.message ?? ''
       if (/already been registered|already exists/i.test(message)) {
-        res.status(409).json({ error: 'E-mail já cadastrado' })
+        res.status(409).json({ error: 'Usuário já cadastrado' })
         return
       }
       console.error(created.error)
@@ -266,27 +309,31 @@ professor.post(
         user_id: userId,
         auth_user_id: authUserId,
         name,
+        username,
+        phone,
         email,
         crossfit: modalities.crossfit,
         hyrox: modalities.hyrox,
       })
-      .select('id, name, email, crossfit, hyrox')
+      .select('id, name, username, phone, email, crossfit, hyrox')
       .single()
     if (inserted.error) {
       await db.auth.admin.deleteUser(authUserId)
       if (isUnique(inserted.error)) {
-        res.status(409).json({ error: 'E-mail já cadastrado' })
+        res.status(409).json({ error: 'Usuário já cadastrado' })
         return
       }
       failDb(res, inserted.error, 'Falha ao criar o aluno')
       return
     }
-    res.status(201).json(mapStudent(inserted.data))
+    const student = mapStudent(inserted.data)
+    const delivery = await deliverWelcome(userId, { name, username, phone, password })
+    res.status(201).json({ ...student, ...delivery })
   }),
 )
 
 professor.post(
-  '/students/:id/password',
+  '/students/:id/resend',
   wrap(async (req, res) => {
     const db = requireDb(res)
     const userId = professorIdOf(req, res)
@@ -295,33 +342,45 @@ professor.post(
       if (!studentId) res.status(400).json({ error: 'Aluno inválido' })
       return
     }
-    const password = String(req.body?.password ?? '')
-    if (password.length < 6) {
-      res.status(400).json({ error: 'A senha precisa ter pelo menos 6 caracteres' })
-      return
-    }
     const { data, error } = await db
       .from('class_students')
-      .select('auth_user_id')
+      .select('auth_user_id, name, username, phone')
       .eq('id', studentId)
       .eq('user_id', userId)
       .maybeSingle()
     if (error) {
-      console.error(error)
-      res.status(500).json({ error: 'Falha ao redefinir a senha' })
+      failDb(res, error, 'Falha ao reenviar o cadastro')
       return
     }
     if (!data?.auth_user_id) {
       res.status(404).json({ error: 'Aluno não encontrado' })
       return
     }
+    if (!data.username) {
+      res.status(400).json({ error: 'Esse aluno não tem usuário' })
+      return
+    }
+    if (!data.phone) {
+      res.status(400).json({ error: 'Esse aluno não tem celular' })
+      return
+    }
+    const password = newStudentPassword()
     const updated = await db.auth.admin.updateUserById(data.auth_user_id, { password })
     if (updated.error) {
       console.error(updated.error)
-      res.status(500).json({ error: 'Falha ao redefinir a senha' })
+      res.status(500).json({ error: 'Falha ao reenviar o cadastro' })
       return
     }
-    res.json({ ok: true })
+    const delivery = await deliverWelcome(userId, {
+      name: data.name,
+      username: data.username,
+      phone: data.phone,
+      password,
+    })
+    res.json({
+      ...delivery,
+      password: delivery.whatsappSent ? null : password,
+    })
   }),
 )
 
@@ -331,22 +390,46 @@ professor.patch(
     const db = requireDb(res)
     const userId = professorIdOf(req, res)
     const studentId = parseId(req.params.id)
-    const modalities = parseModalities(req.body)
     if (!db || !userId) return
     if (!studentId) {
       res.status(400).json({ error: 'Aluno inválido' })
       return
     }
-    if (!modalities) {
-      res.status(400).json({ error: 'Marque Crossfit, Hyrox ou os dois' })
+    const patch = {}
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name).trim()
+      if (!name || name.length > 80) {
+        res.status(400).json({ error: 'Nome inválido' })
+        return
+      }
+      patch.name = name
+    }
+    if (req.body?.phone !== undefined) {
+      const phone = normalizePhone(req.body.phone)
+      if (!phone) {
+        res.status(400).json({ error: 'Celular inválido' })
+        return
+      }
+      patch.phone = phone
+    }
+    if (req.body?.crossfit !== undefined || req.body?.hyrox !== undefined) {
+      const modalities = parseModalities(req.body)
+      if (!modalities) {
+        res.status(400).json({ error: 'Marque Crossfit, Hyrox ou os dois' })
+        return
+      }
+      Object.assign(patch, modalities)
+    }
+    if (Object.keys(patch).length === 0) {
+      res.status(400).json({ error: 'Nada para salvar' })
       return
     }
     const updated = await db
       .from('class_students')
-      .update(modalities)
+      .update(patch)
       .eq('id', studentId)
       .eq('user_id', userId)
-      .select('id, name, email, crossfit, hyrox')
+      .select('id, name, username, phone, email, crossfit, hyrox')
       .maybeSingle()
     if (updated.error) {
       failDb(res, updated.error, 'Falha ao salvar o aluno')

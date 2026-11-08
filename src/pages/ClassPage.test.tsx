@@ -17,7 +17,14 @@ beforeEach(() => {
       const url = String(input)
       if (url.includes('/api/class/students')) {
         return json([
-          { id: 1, name: 'Ana', email: 'ana@x.com', crossfit: true, hyrox: false },
+          {
+            id: 1,
+            name: 'Ana',
+            username: 'ana',
+            phone: '(11) 98888-7766',
+            crossfit: true,
+            hyrox: false,
+          },
         ])
       }
       if (url.includes('/api/class/attendance')) {
@@ -82,7 +89,7 @@ it('mostra modalidade do aluno, adição e edição de horário e treino', async
   expect(screen.getAllByRole('checkbox', { name: 'Crossfit' }).length).toBeGreaterThan(0)
   expect(screen.getAllByRole('checkbox', { name: 'Hyrox' }).length).toBeGreaterThan(0)
   await waitFor(() => {
-    expect(screen.getByText('ana@x.com')).toBeInTheDocument()
+    expect(screen.getByText('ana · (11) 98888-7766')).toBeInTheDocument()
   })
 
   await user.click(screen.getByRole('tab', { name: 'Gestão de horários' }))

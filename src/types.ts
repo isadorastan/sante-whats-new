@@ -20,7 +20,8 @@ export type ClassModality = 'crossfit' | 'hyrox'
 export interface ClassStudentAccount {
   id: number
   name: string
-  email: string
+  username: string
+  phone: string
   crossfit: boolean
   hyrox: boolean
 }

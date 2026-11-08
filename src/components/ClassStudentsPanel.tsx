@@ -4,7 +4,7 @@ import {
   createClassStudent,
   deleteClassStudent,
   fetchClassStudents,
-  resetClassStudentPassword,
+  resendClassStudent,
   updateClassStudent,
 } from '../api/class'
 import type { ClassStudentAccount } from '../types'
@@ -14,17 +14,20 @@ export function ClassStudentsPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [crossfit, setCrossfit] = useState(false)
   const [hyrox, setHyrox] = useState(false)
   const [saving, setSaving] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [removingId, setRemovingId] = useState<number | null>(null)
+  const [resendingId, setResendingId] = useState<number | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null)
-  const [passwordId, setPasswordId] = useState<number | null>(null)
-  const [nextPassword, setNextPassword] = useState('')
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
+  const [createdNote, setCreatedNote] = useState<string | null>(null)
+  const [editId, setEditId] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
 
   async function reloadStudents() {
     const next = await fetchClassStudents()
@@ -63,18 +66,27 @@ export function ClassStudentsPanel() {
     setSaving(true)
     setError(null)
     try {
-      await createClassStudent({
+      const created = await createClassStudent({
         name: name.trim(),
-        email: email.trim(),
+        phone: phone.trim(),
+        username: username.trim(),
         password,
         crossfit,
         hyrox,
       })
       setName('')
-      setEmail('')
-      setPassword('')
+      setPhone('')
+      setUsername('')
       setCrossfit(false)
       setHyrox(false)
+      if (created.whatsappSent) {
+        setPassword('')
+        setCreatedNote('Mensagem enviada no WhatsApp com o link, o usuário e a senha.')
+      } else {
+        setCreatedNote(
+          `Aluno criado. O WhatsApp não enviou a senha: ${created.whatsappError ?? 'falha no envio'}.`,
+        )
+      }
       await reloadStudents()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao adicionar o aluno')
@@ -117,25 +129,46 @@ export function ClassStudentsPanel() {
     }
   }
 
-  async function handlePassword(event: FormEvent) {
+  async function handleEdit(event: FormEvent) {
     event.preventDefault()
-    if (passwordId === null) return
-    setSaving(true)
-    setPasswordMessage(null)
+    if (editId === null) return
+    setUpdating(true)
     setError(null)
     try {
-      await resetClassStudentPassword(passwordId, nextPassword)
-      setNextPassword('')
-      setPasswordId(null)
-      setPasswordMessage('Senha atualizada. Combine a nova senha com o aluno.')
+      await updateClassStudent(editId, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+      })
+      setEditId(null)
+      await reloadStudents()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao redefinir a senha')
+      setError(err instanceof Error ? err.message : 'Falha ao salvar o aluno')
     } finally {
-      setSaving(false)
+      setUpdating(false)
     }
   }
 
-  const acting = saving || updating || removingId !== null
+  async function handleResend(id: number) {
+    setResendingId(id)
+    setCreatedNote(null)
+    setError(null)
+    try {
+      const result = await resendClassStudent(id)
+      if (result.whatsappSent) {
+        setCreatedNote('Cadastro reenviado no WhatsApp. A senha anterior foi trocada.')
+      } else {
+        setCreatedNote(
+          `A senha foi trocada, mas o WhatsApp não enviou: ${result.whatsappError ?? 'falha no envio'}. Nova senha: ${result.password ?? ''}`,
+        )
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao reenviar o cadastro')
+    } finally {
+      setResendingId(null)
+    }
+  }
+
+  const acting = saving || updating || removingId !== null || resendingId !== null
 
   return (
     <div className="class-panel">
@@ -154,12 +187,24 @@ export function ClassStudentsPanel() {
             />
           </label>
           <label className="students-field">
-            <span>E-mail</span>
+            <span>Celular</span>
             <input
               className="students-form__input"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              type="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              required
+            />
+          </label>
+          <label className="students-field">
+            <span>Usuário</span>
+            <input
+              className="students-form__input"
+              autoComplete="off"
+              autoCapitalize="none"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
               required
             />
           </label>
@@ -201,7 +246,7 @@ export function ClassStudentsPanel() {
         </div>
       </form>
 
-      {passwordMessage ? <p className="class-note">{passwordMessage}</p> : null}
+      {createdNote ? <p className="class-note">{createdNote}</p> : null}
 
       {loading ? <p className="page-status">Carregando alunos...</p> : null}
       {!loading && students.length === 0 ? (
@@ -212,7 +257,10 @@ export function ClassStudentsPanel() {
           <li key={student.id} className="class-roster__item">
             <div>
               <strong>{student.name}</strong>
-              <p>{student.email}</p>
+              <p>
+                {student.username}
+                {student.phone ? ` · ${student.phone}` : ''}
+              </p>
               <div className="class-checks">
                 <label>
                   <input
@@ -247,12 +295,20 @@ export function ClassStudentsPanel() {
                 type="button"
                 className="btn"
                 onClick={() => {
-                  setPasswordId(student.id)
-                  setNextPassword('')
-                  setPasswordMessage(null)
+                  setEditId(student.id)
+                  setEditName(student.name)
+                  setEditPhone(student.phone)
                 }}
               >
-                Nova senha
+                Editar
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={resendingId === student.id}
+                onClick={() => void handleResend(student.id)}
+              >
+                {resendingId === student.id ? 'Enviando...' : 'Reenviar cadastro'}
               </button>
               {confirmRemoveId === student.id ? (
                 <button
@@ -273,24 +329,29 @@ export function ClassStudentsPanel() {
                 </button>
               )}
             </div>
-            {passwordId === student.id ? (
-              <form
-                className="class-inline-form"
-                onSubmit={(event) => void handlePassword(event)}
-              >
+            {editId === student.id ? (
+              <form className="class-inline-form" onSubmit={(event) => void handleEdit(event)}>
                 <label className="students-field">
-                  <span>Nova senha de {student.name}</span>
+                  <span>Nome</span>
                   <input
                     className="students-form__input"
-                    type="text"
-                    minLength={6}
-                    value={nextPassword}
-                    onChange={(event) => setNextPassword(event.target.value)}
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
                     required
                   />
                 </label>
-                <button className="btn btn--primary" type="submit" disabled={saving}>
-                  Salvar senha
+                <label className="students-field">
+                  <span>Celular</span>
+                  <input
+                    className="students-form__input"
+                    type="tel"
+                    value={editPhone}
+                    onChange={(event) => setEditPhone(event.target.value)}
+                    required
+                  />
+                </label>
+                <button className="btn btn--primary" type="submit" disabled={updating}>
+                  Salvar
                 </button>
               </form>
             ) : null}
