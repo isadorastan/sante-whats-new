@@ -79,12 +79,47 @@ it('mostra o treino, quem já entrou e troca de modalidade', async () => {
   expect(screen.getByText('2/2')).toBeInTheDocument()
   expect(screen.getByText('Ana')).toBeInTheDocument()
   expect(screen.getByText('Bia')).toBeInTheDocument()
+  expect(screen.getByText('Confirmados')).toBeInTheDocument()
   expect(screen.getByText('Lotado')).toBeInTheDocument()
+  expect(screen.queryByText('Fran 21-15-9')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Ver treino completo' }))
   expect(screen.getByText('Fran 21-15-9')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Ver treino' })).not.toBeInTheDocument()
 
   await user.click(screen.getByRole('tab', { name: 'Crossfit' }))
   expect(onModality).toHaveBeenCalledWith('crossfit')
+})
+
+it('mostra os chips do resumo e o treino completo no olho', async () => {
+  const user = userEvent.setup()
+  render(
+    <ClassWeek
+      week={{
+        ...week,
+        modalities: {
+          crossfit: {
+            days: [
+              {
+                ...week.modalities.crossfit!.days[0],
+                workout: 'Resumo: snatch · corda\n\nCorrida 5 km',
+              },
+            ],
+          },
+        },
+      }}
+      modality="crossfit"
+      onModality={() => {}}
+      onShiftWeek={() => {}}
+      onCheckIn={() => Promise.resolve()}
+      onCancel={() => Promise.resolve()}
+      busyId={null}
+    />,
+  )
+
+  expect(screen.getByText('snatch')).toBeInTheDocument()
+  expect(screen.getByText('corda')).toBeInTheDocument()
+  expect(screen.queryByText('Corrida 5 km')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Ver treino completo' }))
+  expect(screen.getByText('Corrida 5 km')).toBeInTheDocument()
 })
 
 it('entra na aula quando o horário tem vaga', async () => {
@@ -102,6 +137,8 @@ it('entra na aula quando o horário tem vaga', async () => {
     />,
   )
 
+  expect(screen.queryByText('Corrida')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Ver treino completo' }))
   expect(screen.getByText('Corrida')).toBeInTheDocument()
   expect(screen.getByText('Ninguém ainda.')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Fazer check-in' }))

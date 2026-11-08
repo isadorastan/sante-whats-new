@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ClassActionLoading } from './ClassActionLoading'
 import { WorkoutPresets } from './WorkoutPresets'
 import { assistClassWorkout, fetchClassWorkouts, saveClassWorkout } from '../api/class'
@@ -11,6 +11,7 @@ import {
   saveWorkoutPresets,
   type WorkoutPresetGroup,
 } from '../utils/workoutPresets'
+import { joinWorkout, loadResumos, resumoKey, saveResumos, splitWorkout } from '../utils/workoutResumo'
 
 const MODALITIES: { id: ClassModality; label: string }[] = [
   { id: 'crossfit', label: 'Crossfit' },
@@ -83,6 +84,8 @@ export function ClassWorkoutsPanel() {
   const [acting, setActing] = useState(false)
   const [openDate, setOpenDate] = useState<string | null>(null)
   const [presets, setPresets] = useState<WorkoutPresetGroup[]>(loadWorkoutPresets)
+  const [resumos, setResumos] = useState<Record<string, string[]>>(loadResumos)
+  const [resumoDraft, setResumoDraft] = useState('')
   const [request, setRequest] = useState('')
   const [listening, setListening] = useState(false)
   const [assistError, setAssistError] = useState<string | null>(null)
@@ -102,7 +105,14 @@ export function ClassWorkoutsPanel() {
         if (cancelled) return
         setWeek(next)
         const nextDrafts: Record<string, string> = {}
-        for (const day of next.days) nextDrafts[day.date] = day.body
+        const nextResumos = loadResumos()
+        for (const day of next.days) {
+          const split = splitWorkout(day.body)
+          nextDrafts[day.date] = split.text
+          if (split.summary.length > 0) nextResumos[resumoKey(modality, day.date)] = split.summary
+        }
+        saveResumos(nextResumos)
+        setResumos(nextResumos)
         setDrafts(nextDrafts)
         setError(null)
       })
@@ -122,7 +132,7 @@ export function ClassWorkoutsPanel() {
     setError(null)
     setSavedDate(null)
     try {
-      const body = drafts[date] ?? ''
+      const body = joinWorkout(resumos[resumoKey(modality, date)] ?? [], drafts[date] ?? '')
       await saveClassWorkout({ modality, date, body })
       setWeek((current) =>
         current
@@ -138,6 +148,24 @@ export function ClassWorkoutsPanel() {
     } finally {
       setActing(false)
     }
+  }
+
+  function updateResumo(date: string, items: string[]) {
+    setResumos((current) => {
+      const next = { ...current, [resumoKey(modality, date)]: items }
+      saveResumos(next)
+      return next
+    })
+  }
+
+  function addResumo(event: FormEvent, date: string) {
+    event.preventDefault()
+    const name = resumoDraft.trim()
+    if (!name) return
+    const items = resumos[resumoKey(modality, date)] ?? []
+    const exists = items.some((item) => item.toLowerCase() === name.toLowerCase())
+    if (!exists) updateResumo(date, [...items, name])
+    setResumoDraft('')
   }
 
   function updatePresets(next: WorkoutPresetGroup[]) {
@@ -301,6 +329,44 @@ export function ClassWorkoutsPanel() {
           </header>
           <div className="workout-screen__body">
             <div className="workout-screen__editor">
+              <div className="workout-resumo">
+                <span className="workout-presets__title">Resumo</span>
+                <div className="workout-presets__items">
+                  {(resumos[resumoKey(modality, openDay.date)] ?? []).map((item, index) => (
+                    <span key={`${item}-${index}`} className="workout-chip">
+                      <span className="workout-chip__label">{item}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remover ${item} do resumo`}
+                        onClick={() =>
+                          updateResumo(
+                            openDay.date,
+                            (resumos[resumoKey(modality, openDay.date)] ?? []).filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <form
+                    className="workout-presets__add"
+                    onSubmit={(event) => addResumo(event, openDay.date)}
+                  >
+                    <input
+                      className="students-form__input"
+                      aria-label="Novo item em Resumo"
+                      value={resumoDraft}
+                      onChange={(event) => setResumoDraft(event.target.value)}
+                    />
+                    <button className="btn" type="submit">
+                      Adicionar
+                    </button>
+                  </form>
+                </div>
+              </div>
               <label className="students-field">
                 <span>Treino</span>
                 <textarea

@@ -134,6 +134,21 @@ it('monta o treino com as predefinições e deixa editar a lista', async () => {
     expect(screen.getByRole('button', { name: 'CHIPPER' })).toBeInTheDocument()
   })
 
+  it('adiciona snatch e corda na linha de resumo', async () => {
+    localStorage.removeItem('sante-workout-resumo-v1')
+    const user = userEvent.setup()
+    render(<ClassPage />)
+
+    await user.click(await screen.findByRole('tab', { name: 'Gestão de treinos' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Expandir' }))[0])
+    const input = screen.getByRole('textbox', { name: 'Novo item em Resumo' })
+    await user.type(input, 'snatch{Enter}')
+    await user.type(input, 'corda{Enter}')
+
+    expect(screen.getByText('snatch')).toBeInTheDocument()
+    expect(screen.getByText('corda')).toBeInTheDocument()
+  })
+
   it('gera o treino a partir do pedido escrito', async () => {
     const user = userEvent.setup()
     render(<ClassPage />)

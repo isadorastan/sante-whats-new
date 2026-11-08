@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchClassWeek } from '../api/class'
+import { splitWorkout } from '../utils/workoutResumo'
 import type { ClassModality, ClassWeek as ClassWeekData, DayOfWeek } from '../types'
 import { DAYS } from '../types'
 import { brazilToday, formatIsoDate } from '../utils/dates'
@@ -97,9 +98,25 @@ export function ClassCheckinsPanel() {
                 <p>{formatIsoDate(day.date)}</p>
               </div>
             </header>
-            <p className="class-workout">
-              {day.workout.trim() ? day.workout : 'Treino ainda não saiu.'}
-            </p>
+            {(() => {
+              const { summary, text } = splitWorkout(day.workout)
+              return (
+                <>
+                  {summary.length > 0 ? (
+                    <div className="workout-presets__items class-resumo">
+                      {summary.map((item) => (
+                        <span key={item} className="workout-chip">
+                          <span className="workout-chip__label">{item}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="class-workout">
+                    {text.trim() ? text : summary.length === 0 ? 'Treino ainda não saiu.' : ''}
+                  </p>
+                </>
+              )
+            })()}
             {day.slots.length === 0 ? (
               <p className="class-empty">Nenhum horário neste dia.</p>
             ) : (
