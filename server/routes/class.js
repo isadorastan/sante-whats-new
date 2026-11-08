@@ -16,6 +16,7 @@ import {
   weekStartMonday,
   CLASS_DAYS,
 } from '../classRules.js'
+import { draftWorkout } from '../workoutAssist.js'
 import { weekdayId } from '../dailySummary.js'
 import { brazilMonth, brazilNowTime, brazilToday } from '../dates.js'
 import { requireDb } from '../db.js'
@@ -787,6 +788,26 @@ professor.put(
       date: String(saved.data.workout_on).slice(0, 10),
       body: saved.data.body ?? '',
     })
+  }),
+)
+
+professor.post(
+  '/workouts/assist',
+  wrap(async (req, res) => {
+    const userId = professorIdOf(req, res)
+    if (!userId) return
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : ''
+    if (!prompt || prompt.length > 2000) {
+      res.status(400).json({ error: 'Pedido inválido' })
+      return
+    }
+    try {
+      const text = await draftWorkout(prompt)
+      res.json({ text })
+    } catch (err) {
+      const status = err.status ?? 500
+      res.status(status).json({ error: err.message || 'Falha ao gerar o treino' })
+    }
   }),
 )
 

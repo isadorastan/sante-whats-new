@@ -1887,7 +1887,7 @@
 .class-week-loading {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2026,6 +2026,154 @@ button.class-week__arrow:hover {
 
 .class-workout-save {
   margin-top: 0.75rem;
+}
+
+.workout-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: auto;
+  background: var(--bg);
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.workout-screen__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.workout-screen__top h2 {
+  margin: 0;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.workout-screen__top p {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+}
+
+.workout-screen__body {
+  display: grid;
+  grid-template-columns: minmax(260px, 40%) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.25rem;
+}
+
+.workout-screen__editor .class-workout-input {
+  min-height: 16rem;
+}
+
+.workout-assist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.workout-assist__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.workout-assist__mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+}
+
+.workout-assist__mic.is-listening {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: rgba(255, 90, 31, 0.28);
+}
+
+.workout-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.workout-presets__title {
+  margin: 0 0 0.4rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workout-presets__items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.workout-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 90, 31, 0.28);
+  background: var(--accent-dim);
+  border-radius: 999px;
+}
+
+.workout-chip button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.workout-chip button:first-child {
+  padding: 0.28rem 0.15rem 0.28rem 0.7rem;
+}
+
+.workout-chip button:last-child {
+  padding: 0.28rem 0.55rem 0.28rem 0.2rem;
+  color: var(--text-muted);
+}
+
+.workout-presets__add {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.4rem;
+}
+
+.workout-presets__add .students-form__input {
+  flex: 0 0 100px;
+  width: 100px;
+  min-width: 100px;
+  padding: 0.4rem 0.55rem;
+}
+
+.workout-presets__add .btn {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+@media (max-width: 800px) {
+  .workout-screen {
+    padding: 1rem;
+  }
+
+  .workout-screen__body {
+    grid-template-columns: 1fr;
+  }
 }
 
 .class-month {

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { ClassPage } from './ClassPage'
@@ -56,6 +56,9 @@ beforeEach(() => {
           },
         })
       }
+      if (url.includes('/api/class/workouts/assist')) {
+        return json({ text: 'Aquecimento\n3 rounds snatch' })
+      }
       if (url.includes('/api/class/workouts')) {
         return json({
           modality: 'hyrox',
@@ -102,6 +105,91 @@ it('mostra modalidade do aluno, adição e edição de horário e treino', async
   expect(screen.getByText('1/12')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Fazer check-in' })).not.toBeInTheDocument()
 })
+
+it('monta o treino com as predefinições e deixa editar a lista', async () => {
+  localStorage.removeItem('sante-workout-presets-v1')
+  const user = userEvent.setup()
+  render(<ClassPage />)
+
+  await user.click(screen.getByRole('tab', { name: 'Gestão de treinos' }))
+  const expand = await screen.findAllByRole('button', { name: 'Expandir' })
+  await user.click(expand[0])
+
+  expect(screen.getByRole('heading', { name: 'Aquecimento' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'AMRAP' }))
+  expect(screen.getAllByRole('textbox', { name: 'Treino' })[0]).toHaveValue('AMRAP')
+
+  await user.click(screen.getByRole('button', { name: 'Remover AMRAP' }))
+  expect(screen.queryByRole('button', { name: 'AMRAP' })).not.toBeInTheDocument()
+
+  const input = screen.getByRole('textbox', { name: 'Novo item em Wods e formatos' })
+  await user.type(input, 'CHIPPER{Enter}')
+    expect(screen.getByRole('button', { name: 'CHIPPER' })).toBeInTheDocument()
+  })
+
+  it('gera o treino a partir do pedido escrito', async () => {
+    const user = userEvent.setup()
+    render(<ClassPage />)
+
+    await user.click(await screen.findByRole('tab', { name: 'Gestão de treinos' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Expandir' }))[0])
+    await user.type(
+      screen.getByRole('textbox', { name: 'Pedir por escrito' }),
+      'monte um aquecimento com snatch',
+    )
+    await user.click(screen.getByRole('button', { name: 'Gerar treino' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox', { name: 'Treino' })[0]).toHaveValue(
+        'Aquecimento\n3 rounds snatch',
+      )
+    })
+    const assist = vi
+      .mocked(fetch)
+      .mock.calls.find((call) => String(call[0]).includes('/workouts/assist'))
+    expect(JSON.parse(String((assist?.[1] as RequestInit).body))).toEqual({
+      prompt: 'monte um aquecimento com snatch',
+    })
+  })
+
+  it('coloca a fala no pedido e gera o mesmo treino', async () => {
+    class FakeSpeech {
+      static last: FakeSpeech
+      lang = ''
+      continuous = false
+      interimResults = false
+      onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null =
+        null
+      onerror: (() => void) | null = null
+      onend: (() => void) | null = null
+      start() {
+        FakeSpeech.last = this
+      }
+      stop() {
+        this.onend?.()
+      }
+    }
+    vi.stubGlobal('webkitSpeechRecognition', FakeSpeech)
+    const user = userEvent.setup()
+    render(<ClassPage />)
+
+    await user.click(await screen.findByRole('tab', { name: 'Gestão de treinos' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Expandir' }))[0])
+    await user.click(screen.getByRole('button', { name: 'Falar' }))
+    expect(screen.getByRole('button', { name: 'Ouvindo...' })).toBeInTheDocument()
+    act(() => {
+      FakeSpeech.last.onresult?.({ results: [[{ transcript: 'treino com snatch' }]] })
+      FakeSpeech.last.onend?.()
+    })
+
+    expect(screen.getByRole('textbox', { name: 'Pedir por escrito' })).toHaveValue('treino com snatch')
+    await user.click(screen.getByRole('button', { name: 'Gerar treino' }))
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox', { name: 'Treino' })[0]).toHaveValue(
+        'Aquecimento\n3 rounds snatch',
+      )
+    })
+  })
 
 it('mostra carregando enquanto apaga um horário', async () => {
   let release: () => void = () => {}

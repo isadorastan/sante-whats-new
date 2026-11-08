@@ -150,6 +150,16 @@ export async function fetchClassWorkouts(
   return parseClass(res)
 }
 
+export async function assistClassWorkout(prompt: string): Promise<string> {
+  const res = await apiFetch('/api/class/workouts/assist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+  const data = await parseClass<{ text: string }>(res)
+  return data.text
+}
+
 export async function saveClassWorkout(input: {
   modality: ClassModality
   date: string
