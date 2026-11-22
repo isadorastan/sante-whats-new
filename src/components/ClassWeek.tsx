@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import type { ClassModality, ClassWeek as ClassWeekData, DayOfWeek } from '../types'
 import { DAYS } from '../types'
 import { formatIsoDate } from '../utils/dates'
 import { addIsoDays, weekStartMonday } from '../utils/classDates'
+import { downloadShareSticker, stickerContent, stickerFilename } from '../utils/shareSticker'
 import { splitWorkout } from '../utils/workoutResumo'
 
 const MODALITIES: { id: ClassModality; label: string }[] = [
@@ -42,6 +43,105 @@ function EyeIcon({ off }: { off: boolean }) {
         </>
       )}
     </svg>
+  )
+}
+
+function ImageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="5"
+        width="17"
+        height="14"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="8.5" cy="9.5" r="1.3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M4.2 16.2l4.1-3.2 2.8 2.2 2.5-2L19.8 17"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function ShareSticker({
+  time,
+  date,
+  chips,
+}: {
+  time: string
+  date: string
+  chips: string[]
+}) {
+  const titleId = useId()
+  const [open, setOpen] = useState(false)
+  const [minutes, setMinutes] = useState('')
+  const parsed = /^\d+$/.test(minutes.trim()) ? Number(minutes.trim()) : 0
+  const content = stickerContent({ time, minutes: parsed, chips })
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  function download(event: FormEvent) {
+    event.preventDefault()
+    if (!content) return
+    void downloadShareSticker(content, stickerFilename(date))
+    setOpen(false)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="btn class-share-icon"
+        aria-label="Baixar figurinha"
+        onClick={() => setOpen(true)}
+      >
+        <ImageIcon />
+      </button>
+      {open ? (
+        <div className="class-share-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+          <div className="class-share-modal__backdrop" onClick={() => setOpen(false)} />
+          <form className="class-share-modal__card" onSubmit={download}>
+            <header className="class-share-modal__top">
+              <h2 id={titleId}>Figurinha</h2>
+              <button type="button" className="btn" onClick={() => setOpen(false)}>
+                Fechar
+              </button>
+            </header>
+            <label className="students-field">
+              <span>Tempo (minutos)</span>
+              <input
+                className="students-form__input"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={minutes}
+                onChange={(event) => setMinutes(event.target.value)}
+              />
+            </label>
+            <button type="submit" className="btn btn--primary" disabled={!content}>
+              Baixar
+            </button>
+          </form>
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -153,6 +253,7 @@ export function ClassWeek({
             const { summary, text } = splitWorkout(day.workout)
             const workoutOpen = openWorkout === key
             const hasWorkout = text.trim().length > 0
+            const checkedSlot = day.slots.find((slot) => slot.myCheckinId)
             return (
               <article key={key} className="class-day">
                 <header className="class-day__head">
@@ -170,16 +271,23 @@ export function ClassWeek({
                     ))}
                   </div>
                 ) : null}
-                {hasWorkout ? (
-                  <button
-                    type="button"
-                    className="btn class-workout-toggle"
-                    aria-expanded={workoutOpen}
-                    onClick={() => setOpenWorkout(workoutOpen ? null : key)}
-                  >
-                    <EyeIcon off={workoutOpen} />
-                    {workoutOpen ? 'Ocultar treino' : 'Ver treino completo'}
-                  </button>
+                {hasWorkout || checkedSlot ? (
+                  <div className="class-day__tools">
+                    {hasWorkout ? (
+                      <button
+                        type="button"
+                        className="btn class-workout-toggle"
+                        aria-expanded={workoutOpen}
+                        onClick={() => setOpenWorkout(workoutOpen ? null : key)}
+                      >
+                        <EyeIcon off={workoutOpen} />
+                        {workoutOpen ? 'Ocultar treino' : 'Ver treino completo'}
+                      </button>
+                    ) : null}
+                    {checkedSlot ? (
+                      <ShareSticker time={checkedSlot.time} date={day.date} chips={summary} />
+                    ) : null}
+                  </div>
                 ) : summary.length === 0 ? (
                   <p className="class-workout">Treino ainda não saiu.</p>
                 ) : null}

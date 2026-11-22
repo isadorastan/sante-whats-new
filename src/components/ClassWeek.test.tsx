@@ -4,6 +4,15 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import type { ClassWeek as ClassWeekData } from '../types'
 import { ClassWeek } from './ClassWeek'
 
+const downloadShareSticker = vi.hoisted(() => vi.fn())
+
+vi.mock('../utils/shareSticker', async () => {
+  const actual = await vi.importActual<typeof import('../utils/shareSticker')>(
+    '../utils/shareSticker',
+  )
+  return { ...actual, downloadShareSticker }
+})
+
 const week: ClassWeekData = {
   weekStart: '2026-11-02',
   today: '2026-11-07',
@@ -209,6 +218,79 @@ it('só deixa ir da semana atual para a seguinte', () => {
 
   expect(screen.getByRole('button', { name: 'Semana anterior' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Próxima semana' })).not.toBeInTheDocument()
+})
+
+it('pede os minutos antes de baixar a figurinha do horário em que entrou', async () => {
+  const user = userEvent.setup()
+  downloadShareSticker.mockReset()
+  render(
+    <ClassWeek
+      week={{
+        ...week,
+        modalities: {
+          crossfit: {
+            days: [
+              {
+                date: '2026-11-03',
+                day: 'ter',
+                workout: 'Resumo: snatch · corda\n\nForça',
+                slots: [
+                  {
+                    id: 2,
+                    time: '18:00',
+                    capacity: 10,
+                    canJoin: false,
+                    canLeave: false,
+                    myCheckinId: 44,
+                    closedReason: 'started',
+                    checkins: [{ id: 44, studentName: 'Lia', mine: true }],
+                  },
+                  {
+                    id: 3,
+                    time: '19:00',
+                    capacity: 10,
+                    canJoin: true,
+                    canLeave: false,
+                    myCheckinId: null,
+                    checkins: [],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }}
+      modality="crossfit"
+      onModality={() => {}}
+      onShiftWeek={() => {}}
+      onCheckIn={() => Promise.resolve()}
+      onCancel={() => Promise.resolve()}
+      busyId={null}
+    />,
+  )
+
+  expect(screen.getAllByRole('button', { name: 'Baixar figurinha' })).toHaveLength(1)
+  expect(screen.queryByRole('dialog', { name: 'Figurinha' })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Baixar figurinha' }))
+  expect(screen.getByRole('dialog', { name: 'Figurinha' })).toBeInTheDocument()
+  const save = screen.getByRole('button', { name: 'Baixar', exact: true })
+  expect(save).toBeDisabled()
+  await user.type(screen.getByRole('spinbutton', { name: 'Tempo (minutos)' }), '70')
+  expect(save).toBeEnabled()
+  await user.click(save)
+
+  expect(downloadShareSticker).toHaveBeenCalledWith(
+    {
+      timeLabel: 'Horário',
+      time: '18:00',
+      durationLabel: 'Tempo',
+      duration: '1h 10m',
+      chips: ['snatch', 'corda'],
+      brand: 'SANTÉ',
+    },
+    'sante-treino-2026-11-03.png',
+  )
 })
 
 it('esconde a outra modalidade quando o aluno só faz Crossfit', () => {

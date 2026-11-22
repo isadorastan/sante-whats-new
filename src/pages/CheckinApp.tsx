@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchMe, type Account } from '../api/auth'
 import { cancelCheckin, createCheckin, fetchClassWeek } from '../api/class'
 import { clearToken, getToken, setUnauthorizedHandler } from '../api/http'
+import { ClassRanking } from '../components/ClassRanking'
 import { ClassWeek } from '../components/ClassWeek'
 import { InstallHint } from '../components/InstallHint'
 import { LoginPage } from './LoginPage'
@@ -11,11 +12,13 @@ import { addIsoDays, weekStartMonday } from '../utils/classDates'
 import { adminHref } from '../utils/paths'
 
 type Gate = 'checking' | 'out' | 'student' | 'professor' | 'error'
+type StudentTab = 'checkin' | 'comunidade'
 
 export function CheckinApp() {
   const [gate, setGate] = useState<Gate>(() => (getToken() ? 'checking' : 'out'))
   const [account, setAccount] = useState<Account | null>(null)
   const [gateError, setGateError] = useState<string | null>(null)
+  const [tab, setTab] = useState<StudentTab>('checkin')
   const [modality, setModality] = useState<ClassModality>('hyrox')
   const [weekStart, setWeekStart] = useState(() => weekStartMonday(brazilToday()))
   const [week, setWeek] = useState<ClassWeekData | null>(null)
@@ -193,24 +196,54 @@ export function CheckinApp() {
   return (
     <div className="checkin-shell">
       <header className="page-header checkin-header">
-        <div>
-          <p className="page-header__title">Check-in</p>
-          <p className="page-header__subtitle">{account?.name}</p>
+        <div className="checkin-header__top">
+          <div>
+            <p className="page-header__title">{tab === 'checkin' ? 'Check-in' : 'Comunidade'}</p>
+            <p className="page-header__subtitle">{account?.name}</p>
+          </div>
+          <button type="button" className="btn" onClick={logout}>
+            Sair
+          </button>
         </div>
-        <button type="button" className="btn" onClick={logout}>
-          Sair
-        </button>
+        <div className="segmented class-sections" role="tablist" aria-label="Área do aluno">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'checkin'}
+            className={tab === 'checkin' ? 'is-active' : undefined}
+            onClick={() => setTab('checkin')}
+          >
+            Check-in
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'comunidade'}
+            className={tab === 'comunidade' ? 'is-active' : undefined}
+            onClick={() => setTab('comunidade')}
+          >
+            Comunidade
+          </button>
+        </div>
       </header>
       <InstallHint />
       <div className="class-page__body">
-          {weekError ? (
+          {tab === 'comunidade' && account && (account.crossfit || account.hyrox) ? (
+            <ClassRanking
+              crossfit={account.crossfit}
+              hyrox={account.hyrox}
+              modality={modality}
+              onModality={setModality}
+            />
+          ) : null}
+          {tab === 'checkin' && weekError ? (
             <div className="whatsapp-banner whatsapp-banner--error">{weekError}</div>
           ) : null}
           {account && !account.crossfit && !account.hyrox ? (
             <p className="class-empty">Sua conta não está no Crossfit nem no Hyrox.</p>
           ) : null}
-          {loadingWeek && !week ? <p className="page-status">Carregando agenda...</p> : null}
-          {week && (account?.crossfit || account?.hyrox) ? (
+          {tab === 'checkin' && loadingWeek && !week ? <p className="page-status">Carregando agenda...</p> : null}
+          {tab === 'checkin' && week && (account?.crossfit || account?.hyrox) ? (
             <div className="class-week-wrap">
               {loadingWeek ? (
                 <div className="class-week-loading" role="status">

@@ -30,6 +30,7 @@ import {
 import { sendWhatsAppText } from '../whatsappSessions.js'
 import { brazilMonth, brazilNowTime, brazilToday } from '../dates.js'
 import { requireDb } from '../db.js'
+import { rankCheckins } from '../ranking.js'
 
 const DAY_ORDER = new Map(CLASS_DAYS.map((day, index) => [day, index]))
 
@@ -223,7 +224,12 @@ professor.use((req, res, next) => {
     return
   }
   const path = req.path
-  if (path === '/week' || path === '/attendance' || path.startsWith('/checkins')) {
+  if (
+    path === '/week' ||
+    path === '/attendance' ||
+    path === '/ranking' ||
+    path.startsWith('/checkins')
+  ) {
     next('router')
     return
   }
@@ -1202,6 +1208,72 @@ student.get(
   }),
 )
 
+student.get(
+  '/ranking',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    const modality = parseModality(req.query.modality)
+    const scope = req.query.scope === 'all' || req.query.scope === 'month' ? req.query.scope : null
+    if (!db || !studioId) return
+    if (!modality) {
+      res.status(400).json({ error: 'Modalidade inválida' })
+      return
+    }
+    if (!scope) {
+      res.status(400).json({ error: 'Período inválido' })
+      return
+    }
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao carregar o ranking' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    if (
+      (modality === 'crossfit' && !found.student.crossfit) ||
+      (modality === 'hyrox' && !found.student.hyrox)
+    ) {
+      res.status(403).json({ error: 'Modalidade não liberada' })
+      return
+    }
+    const today = brazilToday()
+    const month = brazilMonth()
+    const loaded = await loadRankingRows(db, studioId, modality, today, scope === 'month' ? month : null)
+    if (loaded.error) {
+      console.error(loaded.error)
+      res.status(500).json({ error: 'Falha ao carregar o ranking' })
+      return
+    }
+    const students = await db.from('class_students').select('id, name').eq('user_id', studioId)
+    if (students.error) {
+      console.error(students.error)
+      res.status(500).json({ error: 'Falha ao carregar o ranking' })
+      return
+    }
+    const names = new Map((students.data ?? []).map((row) => [Number(row.id), row.name]))
+    const rows = rankCheckins(
+      loaded.rows.map((row) => ({
+        studentId: row.student_id == null ? null : Number(row.student_id),
+        name:
+          (row.student_id != null && names.get(Number(row.student_id))) || row.student_name,
+        classOn: String(row.class_on).slice(0, 10),
+      })),
+      { today, month: scope === 'month' ? month : null, studentId: Number(found.student.id) },
+    )
+    res.json({
+      modality,
+      scope,
+      month: scope === 'month' ? month : null,
+      rows,
+    })
+  }),
+)
+
 function checkinError(reason) {
   if (reason === 'full') return 'Horário lotado'
   if (reason === 'duplicate') return 'Você já está neste horário'
@@ -1215,6 +1287,28 @@ function mapSession(row) {
     time: row.time,
     modality: row.modality,
     studentName: row.student_name,
+  }
+}
+
+async function loadRankingRows(db, userId, modality, today, month) {
+  const pageSize = 1000
+  const rows = []
+  for (let from = 0; ; from += pageSize) {
+    let query = db
+      .from('class_checkins')
+      .select('id, student_id, student_name, class_on')
+      .eq('user_id', userId)
+      .eq('modality', modality)
+      .lte('class_on', today)
+      .order('id')
+      .range(from, from + pageSize - 1)
+    if (month) {
+      query = query.gte('class_on', `${month}-01`).lt('class_on', nextMonthStart(month))
+    }
+    const { data, error } = await query
+    if (error) return { rows: [], error }
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) return { rows, error: null }
   }
 }
 

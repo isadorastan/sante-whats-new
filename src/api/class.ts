@@ -3,6 +3,7 @@ import type {
   ClassSchedule,
   ClassSlot,
   ClassStudentAccount,
+  ClassRanking,
   ClassWeek,
   ClassWorkoutWeek,
   DayOfWeek,
@@ -173,6 +174,14 @@ export async function saveClassWorkout(input: {
 
 export async function fetchStudioAttendance(month: string): Promise<StudioAttendance> {
   const res = await apiFetch(`/api/class/attendance?month=${month}`)
+  return parseClass(res)
+}
+
+export async function fetchClassRanking(
+  modality: ClassModality,
+  scope: 'all' | 'month',
+): Promise<ClassRanking> {
+  const res = await apiFetch(`/api/class/ranking?modality=${modality}&scope=${scope}`)
   return parseClass(res)
 }
 

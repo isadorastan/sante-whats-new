@@ -105,6 +105,20 @@ export interface StudioAttendance {
   rows: ClassAttendanceRow[]
 }
 
+export interface ClassRankingRow {
+  rank: number
+  name: string
+  count: number
+  mine: boolean
+}
+
+export interface ClassRanking {
+  modality: ClassModality
+  scope: 'all' | 'month'
+  month: string | null
+  rows: ClassRankingRow[]
+}
+
 export interface MineAttendance {
   month: string
   scope: 'mine'

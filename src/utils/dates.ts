@@ -53,6 +53,11 @@ export function formatMonthLabel(month: string): string {
   return `${label} de ${year}`
 }
 
+export function rankingMonthLabel(month: string): string {
+  const name = formatMonthLabel(month).split(' de ')[0] ?? month
+  return name.charAt(0).toLocaleUpperCase('pt-BR') + name.slice(1)
+}
+
 export function formatMonths(value: number | null): string {
   if (value === null) return '—'
   const label = value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
