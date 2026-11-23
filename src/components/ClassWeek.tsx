@@ -1,10 +1,13 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
-import type { ClassModality, ClassWeek as ClassWeekData, DayOfWeek } from '../types'
+import { invitesEnabled, SlotInvites } from './ClassInvites'
+import type { ClassInvites, ClassModality, ClassWeek as ClassWeekData, DayOfWeek } from '../types'
 import { DAYS } from '../types'
 import { formatIsoDate } from '../utils/dates'
 import { addIsoDays, weekStartMonday } from '../utils/classDates'
 import { downloadShareSticker, stickerContent, stickerFilename } from '../utils/shareSticker'
 import { splitWorkout } from '../utils/workoutResumo'
+
+const SHOW_SHARE_STICKER = false
 
 const MODALITIES: { id: ClassModality; label: string }[] = [
   { id: 'hyrox', label: 'Hyrox' },
@@ -159,6 +162,9 @@ interface ClassWeekProps {
   onCheckIn: (slotId: number, date: string) => Promise<void>
   onCancel: (checkinId: number) => Promise<void>
   busyId: string | null
+  invites?: ClassInvites | null
+  onInvitesChanged?: () => void
+  focusInvite?: { slotId: number; date: string } | null
 }
 
 export function ClassWeek({
@@ -169,6 +175,9 @@ export function ClassWeek({
   onCheckIn,
   onCancel,
   busyId,
+  invites = null,
+  onInvitesChanged = () => {},
+  focusInvite = null,
 }: ClassWeekProps) {
   const visible = MODALITIES.filter((item) => week.modalities[item.id])
   const current = visible.some((item) => item.id === modality) ? modality : visible[0]?.id
@@ -271,7 +280,7 @@ export function ClassWeek({
                     ))}
                   </div>
                 ) : null}
-                {hasWorkout || checkedSlot ? (
+                {hasWorkout || (SHOW_SHARE_STICKER && checkedSlot) ? (
                   <div className="class-day__tools">
                     {hasWorkout ? (
                       <button
@@ -284,7 +293,7 @@ export function ClassWeek({
                         {workoutOpen ? 'Ocultar treino' : 'Ver treino completo'}
                       </button>
                     ) : null}
-                    {checkedSlot ? (
+                    {SHOW_SHARE_STICKER && checkedSlot ? (
                       <ShareSticker time={checkedSlot.time} date={day.date} chips={summary} />
                     ) : null}
                   </div>
@@ -353,6 +362,18 @@ export function ClassWeek({
                               <p className="class-people--empty">Ninguém ainda.</p>
                             )}
                           </div>
+                          {current && invitesEnabled(current) ? (
+                            <SlotInvites
+                              slotId={slot.id}
+                              date={day.date}
+                              day={day.day}
+                              time={slot.time}
+                              modality={current}
+                              invites={invites}
+                              focused={focusInvite?.slotId === slot.id && focusInvite.date === day.date}
+                              onChanged={onInvitesChanged}
+                            />
+                          ) : null}
                         </li>
                       )
                     })}

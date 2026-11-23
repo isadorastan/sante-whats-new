@@ -4,15 +4,6 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import type { ClassWeek as ClassWeekData } from '../types'
 import { ClassWeek } from './ClassWeek'
 
-const downloadShareSticker = vi.hoisted(() => vi.fn())
-
-vi.mock('../utils/shareSticker', async () => {
-  const actual = await vi.importActual<typeof import('../utils/shareSticker')>(
-    '../utils/shareSticker',
-  )
-  return { ...actual, downloadShareSticker }
-})
-
 const week: ClassWeekData = {
   weekStart: '2026-11-02',
   today: '2026-11-07',
@@ -89,6 +80,7 @@ it('mostra o treino, quem já entrou e troca de modalidade', async () => {
   expect(screen.getByText('Ana')).toBeInTheDocument()
   expect(screen.getByText('Bia')).toBeInTheDocument()
   expect(screen.getByText('Confirmados')).toBeInTheDocument()
+  expect(screen.queryByText('Convites')).not.toBeInTheDocument()
   expect(screen.getByText('Lotado')).toBeInTheDocument()
   expect(screen.queryByText('Fran 21-15-9')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Ver treino completo' }))
@@ -220,9 +212,7 @@ it('só deixa ir da semana atual para a seguinte', () => {
   expect(screen.queryByRole('button', { name: 'Próxima semana' })).not.toBeInTheDocument()
 })
 
-it('pede os minutos antes de baixar a figurinha do horário em que entrou', async () => {
-  const user = userEvent.setup()
-  downloadShareSticker.mockReset()
+it('esconde a figurinha do horário em que entrou', () => {
   render(
     <ClassWeek
       week={{
@@ -269,28 +259,9 @@ it('pede os minutos antes de baixar a figurinha do horário em que entrou', asyn
     />,
   )
 
-  expect(screen.getAllByRole('button', { name: 'Baixar figurinha' })).toHaveLength(1)
+  expect(screen.getAllByText('Convites').length).toBeGreaterThan(0)
+  expect(screen.queryByRole('button', { name: 'Baixar figurinha' })).not.toBeInTheDocument()
   expect(screen.queryByRole('dialog', { name: 'Figurinha' })).not.toBeInTheDocument()
-
-  await user.click(screen.getByRole('button', { name: 'Baixar figurinha' }))
-  expect(screen.getByRole('dialog', { name: 'Figurinha' })).toBeInTheDocument()
-  const save = screen.getByRole('button', { name: 'Baixar', exact: true })
-  expect(save).toBeDisabled()
-  await user.type(screen.getByRole('spinbutton', { name: 'Tempo (minutos)' }), '70')
-  expect(save).toBeEnabled()
-  await user.click(save)
-
-  expect(downloadShareSticker).toHaveBeenCalledWith(
-    {
-      timeLabel: 'Horário',
-      time: '18:00',
-      durationLabel: 'Tempo',
-      duration: '1h 10m',
-      chips: ['snatch', 'corda'],
-      brand: 'SANTÉ',
-    },
-    'sante-treino-2026-11-03.png',
-  )
 })
 
 it('esconde a outra modalidade quando o aluno só faz Crossfit', () => {

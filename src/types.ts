@@ -119,6 +119,50 @@ export interface ClassRanking {
   rows: ClassRankingRow[]
 }
 
+export interface ClassStatsDay {
+  date: string
+  count: number
+}
+
+export interface ClassInviteClassmate {
+  id: number
+  name: string
+  crossfit: boolean
+  hyrox: boolean
+}
+
+export interface ClassInvite {
+  id: number
+  fromStudentId: number
+  fromName: string
+  toStudentId: number
+  toName: string
+  slotId: number
+  classOn: string
+  modality: ClassModality
+  day: DayOfWeek
+  time: string
+  status: 'pending' | 'accepted' | 'declined'
+}
+
+export interface ClassInvites {
+  classmates: ClassInviteClassmate[]
+  sent: ClassInvite[]
+  received: ClassInvite[]
+}
+
+export interface ClassStats {
+  total: number
+  month: number
+  week: number
+  firstOn: string | null
+  crossfit: number
+  hyrox: number
+  from: string
+  today: string
+  days: ClassStatsDay[]
+}
+
 export interface MineAttendance {
   month: string
   scope: 'mine'

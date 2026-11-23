@@ -3,7 +3,9 @@ import type {
   ClassSchedule,
   ClassSlot,
   ClassStudentAccount,
+  ClassInvites,
   ClassRanking,
+  ClassStats,
   ClassWeek,
   ClassWorkoutWeek,
   DayOfWeek,
@@ -174,6 +176,40 @@ export async function saveClassWorkout(input: {
 
 export async function fetchStudioAttendance(month: string): Promise<StudioAttendance> {
   const res = await apiFetch(`/api/class/attendance?month=${month}`)
+  return parseClass(res)
+}
+
+export async function fetchClassInvites(): Promise<ClassInvites> {
+  const res = await apiFetch('/api/class/invites')
+  return parseClass(res)
+}
+
+export async function createClassInvites(input: {
+  modality: ClassModality
+  slotId: number
+  date: string
+  studentIds: number[]
+}): Promise<void> {
+  const res = await apiFetch('/api/class/invites', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  await parseClass(res)
+}
+
+export async function acceptClassInvite(id: number): Promise<void> {
+  const res = await apiFetch(`/api/class/invites/${id}/accept`, { method: 'POST' })
+  await parseClass(res)
+}
+
+export async function declineClassInvite(id: number): Promise<void> {
+  const res = await apiFetch(`/api/class/invites/${id}/decline`, { method: 'POST' })
+  await parseClass(res)
+}
+
+export async function fetchClassStats(): Promise<ClassStats> {
+  const res = await apiFetch('/api/class/stats')
   return parseClass(res)
 }
 

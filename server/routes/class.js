@@ -17,7 +17,7 @@ import {
   CLASS_DAYS,
 } from '../classRules.js'
 import { draftWorkout } from '../workoutAssist.js'
-import { weekdayId } from '../dailySummary.js'
+import { addIsoDays, weekdayId } from '../dailySummary.js'
 import {
   formatBrazilPhone,
   normalizePhone,
@@ -31,6 +31,7 @@ import { sendWhatsAppText } from '../whatsappSessions.js'
 import { brazilMonth, brazilNowTime, brazilToday } from '../dates.js'
 import { requireDb } from '../db.js'
 import { rankCheckins } from '../ranking.js'
+import { summarizeCheckins } from '../stats.js'
 
 const DAY_ORDER = new Map(CLASS_DAYS.map((day, index) => [day, index]))
 
@@ -228,6 +229,9 @@ professor.use((req, res, next) => {
     path === '/week' ||
     path === '/attendance' ||
     path === '/ranking' ||
+    path === '/stats' ||
+    path === '/invites' ||
+    path.startsWith('/invites/') ||
     path.startsWith('/checkins')
   ) {
     next('router')
@@ -990,6 +994,95 @@ student.get(
   }),
 )
 
+async function placeCheckin(db, studioId, student, slotId, date) {
+  const slot = await db
+    .from('class_slots')
+    .select('id, modality, day, time, capacity, user_id')
+    .eq('id', slotId)
+    .eq('user_id', studioId)
+    .maybeSingle()
+  if (slot.error) {
+    console.error(slot.error)
+    return { ok: false, status: 500, error: 'Falha ao fazer check-in' }
+  }
+  if (!slot.data) return { ok: false, status: 404, error: 'Horário não encontrado' }
+  if (slot.data.modality === 'crossfit' && !student.crossfit) {
+    return { ok: false, status: 403, error: 'Você não está no Crossfit' }
+  }
+  if (slot.data.modality === 'hyrox' && !student.hyrox) {
+    return { ok: false, status: 403, error: 'Você não está no Hyrox' }
+  }
+  if (weekdayId(date) !== slot.data.day) {
+    return { ok: false, status: 400, error: 'Esse horário não acontece nessa data' }
+  }
+  const enabled = await db
+    .from('class_days')
+    .select('day')
+    .eq('user_id', studioId)
+    .eq('modality', slot.data.modality)
+    .eq('day', slot.data.day)
+    .maybeSingle()
+  if (enabled.error) {
+    console.error(enabled.error)
+    return { ok: false, status: 500, error: 'Falha ao fazer check-in' }
+  }
+  if (!enabled.data) return { ok: false, status: 400, error: 'Esse dia não está na grade' }
+
+  const takenResult = await db
+    .from('class_checkins')
+    .select('id, student_id')
+    .eq('slot_id', slotId)
+    .eq('class_on', date)
+  if (takenResult.error) {
+    console.error(takenResult.error)
+    return { ok: false, status: 500, error: 'Falha ao fazer check-in' }
+  }
+  const takenRows = takenResult.data ?? []
+  const existing = takenRows.find((row) => Number(row.student_id) === Number(student.id))
+  const decision = checkinDecision({
+    today: brazilToday(),
+    nowTime: brazilNowTime(),
+    classDate: date,
+    classTime: slot.data.time,
+    taken: takenRows.length,
+    capacity: Number(slot.data.capacity),
+    alreadyIn: Boolean(existing),
+  })
+  if (!decision.ok) {
+    return {
+      ok: false,
+      status: 409,
+      error: checkinError(decision.reason),
+      reason: decision.reason,
+      checkinId: existing ? Number(existing.id) : null,
+      slot: slot.data,
+    }
+  }
+
+  const inserted = await db
+    .from('class_checkins')
+    .insert({
+      user_id: studioId,
+      student_id: student.id,
+      slot_id: slot.data.id,
+      student_name: student.name,
+      modality: slot.data.modality,
+      day: slot.data.day,
+      time: slot.data.time,
+      class_on: date,
+    })
+    .select('id')
+    .single()
+  if (inserted.error) {
+    if (isUnique(inserted.error)) {
+      return { ok: false, status: 409, error: checkinError('duplicate'), reason: 'duplicate', checkinId: null }
+    }
+    console.error(inserted.error)
+    return { ok: false, status: 500, error: 'Falha ao fazer check-in' }
+  }
+  return { ok: true, id: Number(inserted.data.id), slot: slot.data }
+}
+
 student.post(
   '/checkins',
   wrap(async (req, res) => {
@@ -1012,101 +1105,12 @@ student.post(
       res.status(403).json({ error: 'Aluno não encontrado' })
       return
     }
-    const slot = await db
-      .from('class_slots')
-      .select('id, modality, day, time, capacity, user_id')
-      .eq('id', slotId)
-      .eq('user_id', studioId)
-      .maybeSingle()
-    if (slot.error) {
-      console.error(slot.error)
-      res.status(500).json({ error: 'Falha ao fazer check-in' })
+    const placed = await placeCheckin(db, studioId, found.student, slotId, date)
+    if (!placed.ok) {
+      res.status(placed.status).json({ error: placed.error })
       return
     }
-    if (!slot.data) {
-      res.status(404).json({ error: 'Horário não encontrado' })
-      return
-    }
-    if (slot.data.modality === 'crossfit' && !found.student.crossfit) {
-      res.status(403).json({ error: 'Você não está no Crossfit' })
-      return
-    }
-    if (slot.data.modality === 'hyrox' && !found.student.hyrox) {
-      res.status(403).json({ error: 'Você não está no Hyrox' })
-      return
-    }
-    if (weekdayId(date) !== slot.data.day) {
-      res.status(400).json({ error: 'Esse horário não acontece nessa data' })
-      return
-    }
-    const enabled = await db
-      .from('class_days')
-      .select('day')
-      .eq('user_id', studioId)
-      .eq('modality', slot.data.modality)
-      .eq('day', slot.data.day)
-      .maybeSingle()
-    if (enabled.error) {
-      console.error(enabled.error)
-      res.status(500).json({ error: 'Falha ao fazer check-in' })
-      return
-    }
-    if (!enabled.data) {
-      res.status(400).json({ error: 'Esse dia não está na grade' })
-      return
-    }
-
-    const today = brazilToday()
-    const nowTime = brazilNowTime()
-    const takenResult = await db
-      .from('class_checkins')
-      .select('id, student_id')
-      .eq('slot_id', slotId)
-      .eq('class_on', date)
-    if (takenResult.error) {
-      console.error(takenResult.error)
-      res.status(500).json({ error: 'Falha ao fazer check-in' })
-      return
-    }
-    const takenRows = takenResult.data ?? []
-    const decision = checkinDecision({
-      today,
-      nowTime,
-      classDate: date,
-      classTime: slot.data.time,
-      taken: takenRows.length,
-      capacity: Number(slot.data.capacity),
-      alreadyIn: takenRows.some((row) => Number(row.student_id) === Number(found.student.id)),
-    })
-    if (!decision.ok) {
-      res.status(409).json({ error: checkinError(decision.reason) })
-      return
-    }
-
-    const inserted = await db
-      .from('class_checkins')
-      .insert({
-        user_id: studioId,
-        student_id: found.student.id,
-        slot_id: slot.data.id,
-        student_name: found.student.name,
-        modality: slot.data.modality,
-        day: slot.data.day,
-        time: slot.data.time,
-        class_on: date,
-      })
-      .select('id')
-      .single()
-    if (inserted.error) {
-      if (isUnique(inserted.error)) {
-        res.status(409).json({ error: checkinError('duplicate') })
-        return
-      }
-      console.error(inserted.error)
-      res.status(500).json({ error: 'Falha ao fazer check-in' })
-      return
-    }
-    res.status(201).json({ id: Number(inserted.data.id) })
+    res.status(201).json({ id: placed.id })
   }),
 )
 
@@ -1274,6 +1278,428 @@ student.get(
   }),
 )
 
+student.get(
+  '/stats',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    if (!db || !studioId) return
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao carregar as estatísticas' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    const today = brazilToday()
+    const loaded = await loadStatsRows(db, studioId, found.student.id, today)
+    if (loaded.error) {
+      console.error(loaded.error)
+      res.status(500).json({ error: 'Falha ao carregar as estatísticas' })
+      return
+    }
+    res.json(
+      summarizeCheckins(
+        loaded.rows.map((row) => ({
+          classOn: String(row.class_on).slice(0, 10),
+          modality: row.modality,
+        })),
+        { today, month: brazilMonth(), weekStart: weekStartMonday(today) },
+      ),
+    )
+  }),
+)
+
+function weekBounds(today) {
+  const start = weekStartMonday(today)
+  return { start, end: addIsoDays(start, 13) }
+}
+
+function mapInvite(row, names) {
+  return {
+    id: Number(row.id),
+    fromStudentId: Number(row.from_student_id),
+    fromName: names.get(Number(row.from_student_id)) ?? '',
+    toStudentId: Number(row.to_student_id),
+    toName: names.get(Number(row.to_student_id)) ?? '',
+    slotId: Number(row.slot_id),
+    classOn: String(row.class_on).slice(0, 10),
+    modality: row.modality,
+    day: row.day,
+    time: row.time,
+    status: row.status,
+  }
+}
+
+student.get(
+  '/invites',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    if (!db || !studioId) return
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao carregar os convites' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    const people = await db
+      .from('class_students')
+      .select('id, name, crossfit, hyrox')
+      .eq('user_id', studioId)
+      .order('name')
+    if (people.error) {
+      console.error(people.error)
+      res.status(500).json({ error: 'Falha ao carregar os convites' })
+      return
+    }
+    const names = new Map((people.data ?? []).map((row) => [Number(row.id), row.name]))
+    const me = Number(found.student.id)
+    const today = brazilToday()
+    const bounds = weekBounds(today)
+    const sent = await db
+      .from('class_invites')
+      .select('id, from_student_id, to_student_id, slot_id, class_on, modality, day, time, status')
+      .eq('user_id', studioId)
+      .eq('from_student_id', me)
+      .gte('class_on', bounds.start)
+      .lte('class_on', bounds.end)
+      .order('id')
+    if (sent.error) {
+      console.error(sent.error)
+      res.status(500).json({ error: 'Falha ao carregar os convites' })
+      return
+    }
+    const received = await db
+      .from('class_invites')
+      .select('id, from_student_id, to_student_id, slot_id, class_on, modality, day, time, status')
+      .eq('user_id', studioId)
+      .eq('to_student_id', me)
+      .gte('class_on', bounds.start)
+      .lte('class_on', bounds.end)
+      .order('id')
+    if (received.error) {
+      console.error(received.error)
+      res.status(500).json({ error: 'Falha ao carregar os convites' })
+      return
+    }
+    res.json({
+      classmates: (people.data ?? [])
+        .filter((row) => Number(row.id) !== me)
+        .map((row) => ({
+          id: Number(row.id),
+          name: row.name,
+          crossfit: Boolean(row.crossfit),
+          hyrox: Boolean(row.hyrox),
+        })),
+      sent: (sent.data ?? []).map((row) => mapInvite(row, names)),
+      received: (received.data ?? []).map((row) => mapInvite(row, names)),
+    })
+  }),
+)
+
+student.post(
+  '/invites',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    const modality = parseModality(req.body?.modality)
+    const slotId = parseId(req.body?.slotId)
+    const date = parseIsoDate(req.body?.date)
+    const studentIds = [
+      ...new Set(
+        (Array.isArray(req.body?.studentIds) ? req.body.studentIds : [])
+          .map((value) => parseId(value))
+          .filter(Boolean),
+      ),
+    ]
+    if (!db || !studioId) return
+    if (!modality || !slotId || !date || studentIds.length === 0) {
+      res.status(400).json({ error: 'Convite inválido' })
+      return
+    }
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao enviar o convite' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    if (studentIds.includes(Number(found.student.id))) {
+      res.status(400).json({ error: 'Convite inválido' })
+      return
+    }
+    const today = brazilToday()
+    const bounds = weekBounds(today)
+    if (date < today || date > bounds.end) {
+      res.status(409).json({ error: checkinError(date < today ? 'past' : 'too_far') })
+      return
+    }
+    const slot = await db
+      .from('class_slots')
+      .select('id, modality, day, time, user_id')
+      .eq('id', slotId)
+      .eq('user_id', studioId)
+      .maybeSingle()
+    if (slot.error) {
+      console.error(slot.error)
+      res.status(500).json({ error: 'Falha ao enviar o convite' })
+      return
+    }
+    if (!slot.data || slot.data.modality !== modality || weekdayId(date) !== slot.data.day) {
+      res.status(400).json({ error: 'Horário inválido' })
+      return
+    }
+    const open = checkinWindow({
+      today,
+      nowTime: brazilNowTime(),
+      classDate: date,
+      classTime: slot.data.time,
+    })
+    if (!open.ok) {
+      res.status(409).json({ error: checkinError(open.reason) })
+      return
+    }
+    const people = await db
+      .from('class_students')
+      .select('id, crossfit, hyrox')
+      .eq('user_id', studioId)
+      .in('id', studentIds)
+    if (people.error) {
+      console.error(people.error)
+      res.status(500).json({ error: 'Falha ao enviar o convite' })
+      return
+    }
+    const allowed = new Map((people.data ?? []).map((row) => [Number(row.id), row]))
+    if (
+      studentIds.some((id) => {
+        const person = allowed.get(id)
+        return !person || (modality === 'crossfit' ? !person.crossfit : !person.hyrox)
+      })
+    ) {
+      res.status(400).json({ error: 'Aluno inválido' })
+      return
+    }
+    const existing = await db
+      .from('class_invites')
+      .select('to_student_id, status')
+      .eq('from_student_id', found.student.id)
+      .eq('slot_id', slotId)
+      .eq('class_on', date)
+      .in('status', ['pending', 'accepted'])
+    if (existing.error) {
+      console.error(existing.error)
+      res.status(500).json({ error: 'Falha ao enviar o convite' })
+      return
+    }
+    const taken = new Set((existing.data ?? []).map((row) => Number(row.to_student_id)))
+    const fresh = studentIds.filter((id) => !taken.has(id))
+    if (fresh.length === 0) {
+      res.status(409).json({ error: 'Convite já enviado' })
+      return
+    }
+    const inserted = await db.from('class_invites').insert(
+      fresh.map((id) => ({
+        user_id: studioId,
+        from_student_id: found.student.id,
+        to_student_id: id,
+        slot_id: slot.data.id,
+        class_on: date,
+        modality: slot.data.modality,
+        day: slot.data.day,
+        time: slot.data.time,
+        status: 'pending',
+      })),
+    )
+    if (inserted.error) {
+      if (isUnique(inserted.error)) {
+        res.status(409).json({ error: 'Convite já enviado' })
+        return
+      }
+      console.error(inserted.error)
+      res.status(500).json({ error: 'Falha ao enviar o convite' })
+      return
+    }
+    res.status(201).json({ created: fresh.length })
+  }),
+)
+
+student.post(
+  '/invites/:id/accept',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    const inviteId = parseId(req.params.id)
+    if (!db || !studioId) return
+    if (!inviteId) {
+      res.status(400).json({ error: 'Convite inválido' })
+      return
+    }
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao aceitar o convite' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    const invite = await db
+      .from('class_invites')
+      .select('id, to_student_id, slot_id, class_on, status')
+      .eq('id', inviteId)
+      .eq('user_id', studioId)
+      .maybeSingle()
+    if (invite.error) {
+      console.error(invite.error)
+      res.status(500).json({ error: 'Falha ao aceitar o convite' })
+      return
+    }
+    if (!invite.data || Number(invite.data.to_student_id) !== Number(found.student.id)) {
+      res.status(404).json({ error: 'Convite não encontrado' })
+      return
+    }
+    if (invite.data.status === 'accepted') {
+      res.status(409).json({ error: 'Convite já respondido' })
+      return
+    }
+    const placed = await placeCheckin(
+      db,
+      studioId,
+      found.student,
+      Number(invite.data.slot_id),
+      String(invite.data.class_on).slice(0, 10),
+    )
+    const checkinId = placed.ok ? placed.id : placed.reason === 'duplicate' ? placed.checkinId : null
+    if (!placed.ok && checkinId == null) {
+      res.status(placed.status).json({ error: placed.error })
+      return
+    }
+    const updated = await db
+      .from('class_invites')
+      .update({ status: 'accepted', checkin_id: checkinId })
+      .eq('id', inviteId)
+      .in('status', ['pending', 'declined'])
+    if (updated.error) {
+      if (isUnique(updated.error)) {
+        res.status(409).json({ error: 'Convite já respondido' })
+        return
+      }
+      console.error(updated.error)
+      res.status(500).json({ error: 'Falha ao aceitar o convite' })
+      return
+    }
+    res.json({ ok: true, checkinId })
+  }),
+)
+
+student.post(
+  '/invites/:id/decline',
+  wrap(async (req, res) => {
+    const db = requireDb(res)
+    const studioId = studioIdOf(req, res)
+    const inviteId = parseId(req.params.id)
+    if (!db || !studioId) return
+    if (!inviteId) {
+      res.status(400).json({ error: 'Convite inválido' })
+      return
+    }
+    const found = await loadStudentByAuth(db, req.user.id)
+    if (found.error) {
+      console.error(found.error)
+      res.status(500).json({ error: 'Falha ao recusar o convite' })
+      return
+    }
+    if (!found.student || found.student.user_id !== studioId) {
+      res.status(403).json({ error: 'Aluno não encontrado' })
+      return
+    }
+    const invite = await db
+      .from('class_invites')
+      .select('id, to_student_id, slot_id, class_on, time, status, checkin_id')
+      .eq('id', inviteId)
+      .eq('user_id', studioId)
+      .maybeSingle()
+    if (invite.error) {
+      console.error(invite.error)
+      res.status(500).json({ error: 'Falha ao recusar o convite' })
+      return
+    }
+    if (!invite.data || Number(invite.data.to_student_id) !== Number(found.student.id)) {
+      res.status(404).json({ error: 'Convite não encontrado' })
+      return
+    }
+    if (invite.data.status === 'declined') {
+      res.status(409).json({ error: 'Convite já respondido' })
+      return
+    }
+    if (invite.data.status === 'accepted') {
+      const classDate = String(invite.data.class_on).slice(0, 10)
+      const open = checkinWindow({
+        today: brazilToday(),
+        nowTime: brazilNowTime(),
+        classDate,
+        classTime: invite.data.time,
+      })
+      if (!open.ok) {
+        res.status(409).json({ error: checkinError(open.reason) })
+        return
+      }
+      let checkinId = invite.data.checkin_id ? Number(invite.data.checkin_id) : null
+      if (!checkinId) {
+        const existing = await db
+          .from('class_checkins')
+          .select('id')
+          .eq('user_id', studioId)
+          .eq('student_id', found.student.id)
+          .eq('slot_id', invite.data.slot_id)
+          .eq('class_on', classDate)
+          .maybeSingle()
+        if (existing.error) {
+          console.error(existing.error)
+          res.status(500).json({ error: 'Falha ao recusar o convite' })
+          return
+        }
+        checkinId = existing.data ? Number(existing.data.id) : null
+      }
+      if (checkinId) {
+        const deleted = await db
+          .from('class_checkins')
+          .delete()
+          .eq('id', checkinId)
+          .eq('student_id', found.student.id)
+        if (deleted.error) {
+          console.error(deleted.error)
+          res.status(500).json({ error: 'Falha ao recusar o convite' })
+          return
+        }
+      }
+    }
+    const updated = await db
+      .from('class_invites')
+      .update({ status: 'declined', checkin_id: null })
+      .eq('id', inviteId)
+      .in('status', ['pending', 'accepted'])
+    if (updated.error) {
+      console.error(updated.error)
+      res.status(500).json({ error: 'Falha ao recusar o convite' })
+      return
+    }
+    res.json({ ok: true })
+  }),
+)
+
 function checkinError(reason) {
   if (reason === 'full') return 'Horário lotado'
   if (reason === 'duplicate') return 'Você já está neste horário'
@@ -1287,6 +1713,24 @@ function mapSession(row) {
     time: row.time,
     modality: row.modality,
     studentName: row.student_name,
+  }
+}
+
+async function loadStatsRows(db, userId, studentId, today) {
+  const pageSize = 1000
+  const rows = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from('class_checkins')
+      .select('id, class_on, modality')
+      .eq('user_id', userId)
+      .eq('student_id', studentId)
+      .lte('class_on', today)
+      .order('id')
+      .range(from, from + pageSize - 1)
+    if (error) return { rows: [], error }
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) return { rows, error: null }
   }
 }
 

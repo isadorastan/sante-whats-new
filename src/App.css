@@ -1749,16 +1749,235 @@
 
 .class-sections.segmented {
   display: flex;
-  flex-wrap: wrap;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   border-radius: 16px;
+}
+
+.class-sections.segmented button {
+  flex: 1 1 0;
+  padding-inline: 0.4rem;
+  font-size: 0.92rem;
 }
 
 .class-modality.segmented {
   align-self: center;
   width: fit-content;
   margin-inline: auto;
+}
+
+.class-invite-notice {
+  display: block;
+  width: calc(100% - 2.5rem);
+  margin: 0.85rem 1.25rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 90, 31, 0.45);
+  border-radius: 12px;
+  background: var(--accent-dim);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.class-invites {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.class-invite-modal .class-share-modal__card {
+  width: min(24rem, 100%);
+  max-height: min(92vh, 40rem);
+  overflow: auto;
+}
+
+.class-invite-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.class-invite-field select {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-slot);
+  color: var(--text);
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+  font-size: 1rem;
+}
+
+.class-invite-people,
+.class-invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.class-invite-people {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.class-invite-people label,
+.class-invite-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-slot);
+}
+
+.class-invite-list li {
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.class-invite-list li div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.class-invite-list li span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.class-invite-list li > div:first-child {
+  flex: 1 1 auto;
+}
+
+.class-invite-list li .class-invite-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+.class-invite-actions .class-invite-quiet {
+  border: 0;
+  background: transparent;
+  padding: 0.15rem 0.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.class-invite-actions .class-invite-quiet:hover {
+  border: 0;
+  background: transparent;
+  text-decoration: underline;
+}
+
+.class-invite-actions .class-invite-quiet:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.class-invite-actions .class-invite-accept {
+  color: var(--accent);
+}
+
+.class-invite-actions .class-invite-decline {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.class-invite-actions .class-invite-decline:hover {
+  color: var(--text);
+}
+
+.class-invite-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.class-invite-whatsapp:hover {
+  background: #1ebe5d;
+}
+
+.class-invite-whatsapp svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+}
+
+.class-invite-list li.is-accepted {
+  border-color: rgba(61, 214, 140, 0.7);
+  background: rgba(61, 214, 140, 0.14);
+}
+
+.class-invite-list li.is-accepted strong,
+.class-invite-status.is-accepted {
+  color: #3dd68c;
+}
+
+.class-invite-list li.is-declined {
+  border-color: rgba(255, 92, 108, 0.7);
+  background: rgba(255, 92, 108, 0.14);
+}
+
+.class-invite-list li.is-declined strong,
+.class-invite-status.is-declined {
+  color: #ff6b7a;
+}
+
+.class-invite-confirm h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.class-invite-confirm p {
+  margin: 0;
+}
+
+.class-invite-confirm__actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.class-invite-confirm__actions .btn {
+  flex: 1;
+}
+
+.class-invite-error {
+  width: 100%;
+  margin: 0;
+  color: #ff7b8a;
+  font-size: 0.8rem;
+}
+
+.class-stats-rule {
+  margin: 0.15rem 0 0;
+  border: 0;
+  border-top: 1px solid rgba(243, 236, 232, 0.16);
 }
 
 .class-ranking-title {
@@ -1804,6 +2023,168 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.class-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.class-stats-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.class-stats-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.class-stats-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.75rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-slot);
+  text-align: center;
+}
+
+.class-stats-count strong {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.class-stats-count span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.class-stats-since {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.class-stats-heat {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.class-stats-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.class-stats-title {
+  margin: 0;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.class-stats-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.class-stats-calendar-label,
+.class-stats-calendar-pad {
+  aspect-ratio: 1;
+}
+
+.class-stats-calendar-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  aspect-ratio: auto;
+}
+
+.class-stats-calendar .class-stats-cell {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 6px;
+}
+
+.class-stats-plot {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.class-stats-days,
+.class-stats-week {
+  display: grid;
+  grid-template-rows: 14px repeat(7, 12px);
+  gap: 3px;
+  flex: none;
+}
+
+.class-stats-days {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 12px;
+}
+
+.class-stats-weeks {
+  display: flex;
+  gap: 3px;
+}
+
+.class-stats-month {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.class-stats-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--bg-slot);
+}
+
+.class-stats-cell.is-1 {
+  background: rgba(255, 90, 31, 0.55);
+}
+
+.class-stats-cell.is-2 {
+  background: var(--accent);
+}
+
+.class-stats-cell.is-future {
+  background: transparent;
+}
+
+.class-stats-cell.is-ahead {
+  opacity: 0.35;
+}
+
+.class-stats-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .class-ranking {
@@ -2200,6 +2581,35 @@ button.class-week__arrow:hover {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.class-slot__invites {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.class-slot__invites-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.class-slot__invite-btn {
+  width: auto;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.class-slot__invite-note {
+  margin: 0 0 20px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .class-people {

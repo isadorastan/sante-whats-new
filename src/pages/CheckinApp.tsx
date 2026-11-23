@@ -1,18 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchMe, type Account } from '../api/auth'
-import { cancelCheckin, createCheckin, fetchClassWeek } from '../api/class'
+import { cancelCheckin, createCheckin, fetchClassInvites, fetchClassWeek } from '../api/class'
 import { clearToken, getToken, setUnauthorizedHandler } from '../api/http'
 import { ClassRanking } from '../components/ClassRanking'
+import { ClassStats } from '../components/ClassStats'
 import { ClassWeek } from '../components/ClassWeek'
+import { invitesEnabled } from '../components/ClassInvites'
 import { InstallHint } from '../components/InstallHint'
 import { LoginPage } from './LoginPage'
-import type { ClassModality, ClassWeek as ClassWeekData } from '../types'
+import type { ClassInvite, ClassInvites, ClassModality, ClassWeek as ClassWeekData } from '../types'
 import { brazilToday } from '../utils/dates'
 import { addIsoDays, weekStartMonday } from '../utils/classDates'
 import { adminHref } from '../utils/paths'
 
 type Gate = 'checking' | 'out' | 'student' | 'professor' | 'error'
-type StudentTab = 'checkin' | 'comunidade'
+type StudentTab = 'checkin' | 'comunidade' | 'estatisticas'
+
+const TAB_TITLE: Record<StudentTab, string> = {
+  checkin: 'Check-in',
+  comunidade: 'Comunidade',
+  estatisticas: 'Estatísticas',
+}
 
 export function CheckinApp() {
   const [gate, setGate] = useState<Gate>(() => (getToken() ? 'checking' : 'out'))
@@ -25,6 +33,10 @@ export function CheckinApp() {
   const [weekError, setWeekError] = useState<string | null>(null)
   const [loadingWeek, setLoadingWeek] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [pendingInvites, setPendingInvites] = useState<ClassInvite[]>([])
+  const [invites, setInvites] = useState<ClassInvites | null>(null)
+  const [focusInvite, setFocusInvite] = useState<{ slotId: number; date: string } | null>(null)
+  const [inviteTick, setInviteTick] = useState(0)
 
   const loadAccount = useCallback(async () => {
     if (!getToken()) {
@@ -78,6 +90,33 @@ export function CheckinApp() {
     if (account.crossfit && !account.hyrox) setModality('crossfit')
     else if (account.hyrox && !account.crossfit) setModality('hyrox')
   }, [gate, account])
+
+  useEffect(() => {
+    if (gate !== 'student') return
+    let cancelled = false
+    void fetchClassInvites()
+      .then((data) => {
+        if (!cancelled) {
+          const today = brazilToday()
+          setInvites(data)
+          setPendingInvites(
+            data.received.filter(
+              (invite) =>
+                invite.status === 'pending' && invite.classOn >= today && invitesEnabled(invite.modality),
+            ),
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInvites(null)
+          setPendingInvites([])
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [gate, inviteTick])
 
   useEffect(() => {
     if (gate !== 'student') return
@@ -198,7 +237,7 @@ export function CheckinApp() {
       <header className="page-header checkin-header">
         <div className="checkin-header__top">
           <div>
-            <p className="page-header__title">{tab === 'checkin' ? 'Check-in' : 'Comunidade'}</p>
+            <p className="page-header__title">{TAB_TITLE[tab]}</p>
             <p className="page-header__subtitle">{account?.name}</p>
           </div>
           <button type="button" className="btn" onClick={logout}>
@@ -224,8 +263,35 @@ export function CheckinApp() {
           >
             Comunidade
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'estatisticas'}
+            className={tab === 'estatisticas' ? 'is-active' : undefined}
+            onClick={() => setTab('estatisticas')}
+          >
+            Estatísticas
+          </button>
         </div>
       </header>
+      {pendingInvites.length > 0 ? (
+        <button
+          type="button"
+          className="class-invite-notice"
+          onClick={() => {
+            const invite = pendingInvites[0]
+            setTab('checkin')
+            if (!invite) return
+            setModality(invite.modality)
+            setWeekStart(weekStartMonday(invite.classOn))
+            setFocusInvite({ slotId: invite.slotId, date: invite.classOn })
+          }}
+        >
+          {pendingInvites.length === 1
+            ? `${pendingInvites[0].fromName} te convidou para treinar`
+            : `Você tem ${pendingInvites.length} convites para treinar`}
+        </button>
+      ) : null}
       <InstallHint />
       <div className="class-page__body">
           {tab === 'comunidade' && account && (account.crossfit || account.hyrox) ? (
@@ -235,6 +301,9 @@ export function CheckinApp() {
               modality={modality}
               onModality={setModality}
             />
+          ) : null}
+          {tab === 'estatisticas' && account && (account.crossfit || account.hyrox) ? (
+            <ClassStats crossfit={account.crossfit} hyrox={account.hyrox} />
           ) : null}
           {tab === 'checkin' && weekError ? (
             <div className="whatsapp-banner whatsapp-banner--error">{weekError}</div>
@@ -268,6 +337,14 @@ export function CheckinApp() {
                 onCheckIn={handleCheckIn}
                 onCancel={handleCancel}
                 busyId={busyId}
+                invites={invites}
+                focusInvite={focusInvite}
+                onInvitesChanged={() => {
+                  setInviteTick((current) => current + 1)
+                  void refreshWeek().catch((err: unknown) => {
+                    setWeekError(err instanceof Error ? err.message : 'Falha ao carregar a semana')
+                  })
+                }}
               />
             </div>
           ) : null}
