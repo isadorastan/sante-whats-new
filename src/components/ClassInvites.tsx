@@ -5,7 +5,7 @@ import { DAYS } from '../types'
 import { brazilToday } from '../utils/dates'
 
 /** Convites só no Crossfit por enquanto. Inclua 'hyrox' para liberar. */
-export const INVITE_MODALITIES: readonly ClassModality[] = ['crossfit']
+export const INVITE_MODALITIES: readonly ClassModality[] = ['crossfit', 'hyrox']
 
 export function invitesEnabled(modality: ClassModality): boolean {
   return INVITE_MODALITIES.includes(modality)
