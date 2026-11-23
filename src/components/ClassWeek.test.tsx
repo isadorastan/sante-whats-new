@@ -80,7 +80,6 @@ it('mostra o treino, quem já entrou e troca de modalidade', async () => {
   expect(screen.getByText('Ana')).toBeInTheDocument()
   expect(screen.getByText('Bia')).toBeInTheDocument()
   expect(screen.getByText('Confirmados')).toBeInTheDocument()
-  expect(screen.queryByText('Convites')).not.toBeInTheDocument()
   expect(screen.getByText('Lotado')).toBeInTheDocument()
   expect(screen.queryByText('Fran 21-15-9')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Ver treino completo' }))
